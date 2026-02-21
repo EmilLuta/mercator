@@ -1,37 +1,28 @@
-use clap::{Parser, Subcommand};
-
-#[derive(Debug, Parser)]
-#[command(
-    name = "mercator",
-    version,
-    about = "Map on-chain systems from a known root contract",
-    long_about = None
-)]
-struct Cli {
-    #[command(subcommand)]
-    command: Command,
-}
-
-#[derive(Debug, Subcommand)]
-enum Command {
-    /// Print repository bootstrap information.
-    Init,
-    /// Placeholder for future contract inspection work.
-    Probe {
-        /// Root contract address to start from (0x-prefixed).
-        address: String,
-    },
-}
+use clap::Parser;
+use mercator::{
+    cli::{Cli, Command},
+    render::render_snapshot,
+    rpc::HttpRpcClient,
+    scanner::scan_bridgehub_ctms,
+};
 
 fn main() {
+    if let Err(err) = run() {
+        eprintln!("error: {err}");
+        std::process::exit(1);
+    }
+}
+
+fn run() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     match cli.command {
-        Command::Init => {
-            println!("mercator is ready. Next: implement your first zkSync extractor.");
-        }
-        Command::Probe { address } => {
-            println!("probe is not implemented yet. received root address: {address}");
+        Command::Scan(args) => {
+            let client = HttpRpcClient::new(args.rpc_url, args.timeout_secs)?;
+            let snapshot = scan_bridgehub_ctms(&client, &args.bridgehub)?;
+            println!("{}", render_snapshot(&snapshot, args.verbose));
         }
     }
+
+    Ok(())
 }
