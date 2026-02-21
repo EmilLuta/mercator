@@ -1,0 +1,18 @@
+[package]
+name = "mercator"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.90"
+description = "A focused on-chain cartography CLI for mapping contract relationships and state"
+license = "MIT"
+repository = "https://github.com/EmilLuta/mercator"
+readme = "README.md"
+keywords = ["ethereum", "zksync", "cli", "web3", "indexing"]
+categories = ["command-line-utilities", "cryptography::cryptocurrencies"]
+
+[[bin]]
+name = "mercator"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
