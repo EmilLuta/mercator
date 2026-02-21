@@ -13,7 +13,7 @@ pub struct CtmSummary {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ChainSummary {
     pub chain_id: u64,
-    pub ctm: String,
+    pub ctm: Option<String>,
     pub chain_contract: Option<String>,
     pub verifier: Option<String>,
     pub admin: Option<String>,
@@ -21,11 +21,17 @@ pub struct ChainSummary {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ScanSnapshot {
+pub struct TopologySnapshot {
     pub bridgehub: String,
     pub chain_ids: Vec<u64>,
     pub chain_ctms: Vec<ChainCtm>,
     pub ctms: Vec<CtmSummary>,
-    pub chains: Vec<ChainSummary>,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChainInspection {
+    pub bridgehub: String,
+    pub chain: ChainSummary,
     pub warnings: Vec<String>,
 }

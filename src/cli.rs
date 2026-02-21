@@ -17,12 +17,14 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
-    /// Scan a Bridgehub and print CTMs and chain relationships.
+    /// Scan Bridgehub topology (CTMs + chain IDs).
     Scan(ScanArgs),
+    /// Inspect a single chain deeply using bridgehub + chain ID.
+    Inspect(InspectArgs),
 }
 
 #[derive(Debug, Clone, Args)]
-pub struct ScanArgs {
+pub struct CommonArgs {
     /// Ethereum JSON-RPC URL.
     #[arg(long, env = "MERCATOR_RPC_URL", value_parser = parse_rpc_url)]
     pub rpc_url: String,
@@ -35,6 +37,21 @@ pub struct ScanArgs {
     /// Print additional diagnostics.
     #[arg(long, default_value_t = false)]
     pub verbose: bool,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct ScanArgs {
+    #[command(flatten)]
+    pub common: CommonArgs,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct InspectArgs {
+    #[command(flatten)]
+    pub common: CommonArgs,
+    /// Chain ID to inspect.
+    #[arg(long)]
+    pub chain_id: u64,
 }
 
 pub fn parse_address(value: &str) -> Result<String, String> {
@@ -61,6 +78,19 @@ mod tests {
     }
 
     #[test]
+    fn cli_requires_inspect_chain_id() {
+        let result = Cli::try_parse_from([
+            "mercator",
+            "inspect",
+            "--rpc-url",
+            "https://example.com",
+            "--bridgehub",
+            "0x0000000000000000000000000000000000000001",
+        ]);
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn cli_parses_scan_flags() {
         let cli = Cli::try_parse_from([
             "mercator",
@@ -72,11 +102,43 @@ mod tests {
         ])
         .expect("scan command should parse");
 
-        let Command::Scan(args) = cli.command;
-        assert_eq!(args.rpc_url, "https://example.com/");
-        assert_eq!(args.bridgehub, "0x0000000000000000000000000000000000000001");
-        assert_eq!(args.timeout_secs, 15);
-        assert!(!args.verbose);
+        let Command::Scan(args) = cli.command else {
+            panic!("expected scan command");
+        };
+        assert_eq!(args.common.rpc_url, "https://example.com/");
+        assert_eq!(
+            args.common.bridgehub,
+            "0x0000000000000000000000000000000000000001"
+        );
+        assert_eq!(args.common.timeout_secs, 15);
+        assert!(!args.common.verbose);
+    }
+
+    #[test]
+    fn cli_parses_inspect_flags() {
+        let cli = Cli::try_parse_from([
+            "mercator",
+            "inspect",
+            "--rpc-url",
+            "https://example.com",
+            "--bridgehub",
+            "0x0000000000000000000000000000000000000001",
+            "--chain-id",
+            "324",
+        ])
+        .expect("inspect command should parse");
+
+        let Command::Inspect(args) = cli.command else {
+            panic!("expected inspect command");
+        };
+        assert_eq!(args.common.rpc_url, "https://example.com/");
+        assert_eq!(
+            args.common.bridgehub,
+            "0x0000000000000000000000000000000000000001"
+        );
+        assert_eq!(args.chain_id, 324);
+        assert_eq!(args.common.timeout_secs, 15);
+        assert!(!args.common.verbose);
     }
 
     #[test]

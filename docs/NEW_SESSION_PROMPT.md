@@ -10,6 +10,7 @@ Read these first and continue from them:
 Before doing implementation work, ask me for the runtime inputs you need for live validation:
 1) RPC URL
 2) Bridgehub address
+3) Chain ID (only if validating `inspect`)
 
 Treat these values as ephemeral and sensitive:
 - do not store them in repository files

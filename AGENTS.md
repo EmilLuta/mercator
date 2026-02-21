@@ -9,9 +9,10 @@ Build a zkSync-focused CLI that maps system topology from a Bridgehub root addre
 
 Primary user workflow:
 
-1. User provides `rpc_url` and `bridgehub` address.
-2. CLI resolves connected protocol entities (starting with CTMs).
-3. CLI prints rich terminal output optimized for human operators.
+1. User provides `rpc_url` and `bridgehub` address for topology discovery.
+2. CLI resolves CTMs and chain IDs from Bridgehub (`scan`).
+3. User runs deep per-chain inspection with `bridgehub + chain_id` (`inspect`).
+4. CLI prints terminal output optimized for operators.
 
 ## Product Direction
 
@@ -45,62 +46,54 @@ Rules:
 
 ## Incremental Delivery Plan
 
-### Slice 0: CLI foundation reset
+### Slice 0: Command split
 
-Goal: replace placeholder commands with a single `scan` command.
-
-Acceptance:
-
-- `mercator scan --rpc-url <URL> --bridgehub <0x...>` parses and validates inputs.
-- Command returns structured internal result object (even if mostly empty).
-- Unit tests cover argument validation and required flags.
-
-### Slice 1: Bridgehub -> CTMs
-
-Goal: from Bridgehub, resolve attached CTMs.
+Goal: support separate topology and deep inspection commands.
 
 Acceptance:
 
-- Scanner returns CTM addresses for a known Bridgehub.
-- Terminal renderer prints CTM section clearly.
-- Unit tests validate parser and mapper logic.
-- Integration test uses mocked RPC responses and is deterministic.
+- `mercator scan --rpc-url <URL> --bridgehub <0x...>` parses and validates.
+- `mercator inspect --rpc-url <URL> --bridgehub <0x...> --chain-id <ID>` parses and validates.
+- Unit tests cover required flags and argument validation for both commands.
 
-### Slice 2: Bridgehub -> chains
+### Slice 1: Topology scan (`scan`)
 
-Goal: resolve chain list connected to Bridgehub.
-
-Acceptance:
-
-- Scanner returns chain identifiers and relevant per-chain references available at Bridgehub layer.
-- Tests cover empty, single, and multi-chain responses.
-
-### Slice 3: Per-chain core contracts
-
-Goal: resolve diamond proxy and verifier for each chain.
+Goal: map Bridgehub -> CTMs -> chain IDs for operator overview.
 
 Acceptance:
 
-- Per-chain section contains diamond proxy and verifier (or explicit unresolved status).
-- Tests cover mixed success where one chain fails and others succeed.
+- Scanner resolves chain IDs via Bridgehub and CTM addresses via `chainTypeManager`.
+- Output is topology-focused (no deep per-chain field dump by default).
+- Integration tests are deterministic with mocked RPC responses.
 
-### Slice 4: Privileged roles
+### Slice 2: Chain deep dive (`inspect`)
 
-Goal: resolve key admin and upgrade authorities.
-
-Acceptance:
-
-- Reports owner/admin-style addresses with label + source.
-- Unknown role methods are reported as warnings, not silent omissions.
-
-### Slice 5: UX polish
-
-Goal: improve operator readability and diagnostics.
+Goal: inspect one chain in detail from `bridgehub + chain_id`.
 
 Acceptance:
 
-- Concise summary block + detailed sections.
-- `--verbose` includes call-level failures and fallback paths.
+- Resolves chain contract, verifier, admin, and protocol version where available.
+- Partial failures degrade to warnings with explicit failed call names.
+- Output is field-oriented and readable for single-chain triage.
+
+### Slice 3: Role provenance and fallback
+
+Goal: make admin/upgrade role extraction source-aware and resilient.
+
+Acceptance:
+
+- Role fields include source method metadata.
+- Fallback ordering is deterministic and warning-rich.
+- Tests cover mixed-success scenarios.
+
+### Slice 4: UX polish
+
+Goal: improve readability and diagnostics for large systems.
+
+Acceptance:
+
+- `scan` stays concise; `inspect` stays detailed.
+- `--verbose` includes call-level diagnostics and fallback paths.
 - Exit codes distinguish success, partial, fatal.
 
 ## Contract Recon Workflow (when ABI is unclear)
@@ -137,9 +130,9 @@ Never assume function names without source confirmation when production behavior
 
 ## Immediate Next Task
 
-Implement Slice 0 and Slice 1 only:
+Implement Slice 0 and Slice 1:
 
-1. Introduce `scan` command with `rpc_url` and `bridgehub`.
-2. Add scanner skeleton and CTM extractor interface.
-3. Implement first Bridgehub -> CTM resolution path.
-4. Add tests before moving to chains/verifiers/roles.
+1. Introduce `inspect` command with `rpc_url`, `bridgehub`, and `chain_id`.
+2. Split scanner paths into topology (`scan`) and deep chain (`inspect`).
+3. Keep `scan` output focused on CTMs + chain IDs.
+4. Add tests before extending role provenance/fallback.

@@ -1,8 +1,10 @@
 # mercator
 
-`mercator` is a Rust CLI for mapping on-chain systems from a known root contract.
+`mercator` is a Rust CLI for zkSync Bridgehub operations: `scan` discovers CTM/chain topology and `inspect` performs deep, single-chain analysis.
 
-Current status: Bridgehub CTM discovery is implemented for zkSync-style Bridgehub contracts.
+Current status:
+- `scan`: Bridgehub topology discovery
+- `inspect`: deep chain inspection
 
 ## Quick start
 
@@ -12,15 +14,33 @@ cargo run -- scan \
   --bridgehub 0x236D1c3Ff32Bd0Ca26b72Af287E895627c0478cE
 ```
 
-## Current output
+```bash
+cargo run -- inspect \
+  --rpc-url https://ethereum-sepolia-rpc.publicnode.com \
+  --bridgehub 0x236D1c3Ff32Bd0Ca26b72Af287E895627c0478cE \
+  --chain-id 324
+```
+
+## Commands
+
+- `scan` (topology mode)
+  - input: `rpc_url`, `bridgehub`
+  - output: CTMs, per-CTM chain count, and attached chain IDs
+- `inspect` (chain mode)
+  - input: `rpc_url`, `bridgehub`, `chain_id`
+  - output: deep per-chain details (diamond, verifier, protocol/admin, warnings)
+
+## Current extraction coverage
 
 - CTM addresses resolved via `chainTypeManager(chainId)`
 - CTM protocol versions from `protocolVersion()`
-- Deduplicated CTM summary with per-CTM chain counts
+- Chain contract from `getZKChain(chainId)`
 - Per-chain verifier from chain getters `getVerifier()`
+- Per-chain admin/protocol from CTM (`getChainAdmin`, `getProtocolVersion`)
 
 ## Next slices
 
-- Chain contract introspection and call-path fallback strategy
+- Command/output polish for operator workflows
+- Chain contract introspection and fallback strategy
 - Privileged roles (owner/admin upgrade authorities)
-- Better diagnostics and verbosity controls
+- Provenance labels and diagnostics verbosity

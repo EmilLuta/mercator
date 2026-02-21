@@ -4,25 +4,29 @@ Last updated: 2026-02-21
 
 ## Product Scope (Current)
 
-`mercator` is a zkSync Bridgehub-first CLI scanner.
+`mercator` is a zkSync Bridgehub-first CLI with split operator workflows:
+- topology scan (`scan`)
+- deep single-chain inspection (`inspect`)
 
-Current command:
+Current commands:
 
 ```bash
 mercator scan --rpc-url <RPC_URL> --bridgehub <BRIDGEHUB_ADDRESS>
+mercator inspect --rpc-url <RPC_URL> --bridgehub <BRIDGEHUB_ADDRESS> --chain-id <CHAIN_ID>
 ```
 
 ## Implemented Features
 
 1. Bridgehub scan entrypoint (`scan`) with input validation.
-2. Chain discovery from Bridgehub:
+2. Chain inspection entrypoint (`inspect`) with `chain_id`.
+3. Chain discovery from Bridgehub:
    - `getAllZKChainChainIDs()`
-3. CTM resolution:
+4. CTM resolution:
    - `chainTypeManager(chainId)`
-4. CTM protocol version rendering as semver:
+5. CTM protocol version rendering as semver:
    - tries `getSemverProtocolVersion()`
    - fallback decodes packed `protocolVersion()`
-5. Stage-1 chain details:
+6. Stage-1 chain details (used by `inspect`):
    - chain diamond proxy: `getZKChain(chainId)`
    - chain verifier: `getVerifier()` (called on chain contract)
    - chain admin: `getChainAdmin(chainId)` (via CTM)
@@ -30,19 +34,21 @@ mercator scan --rpc-url <RPC_URL> --bridgehub <BRIDGEHUB_ADDRESS>
 
 ## Output Shape (Current)
 
-1. Bridgehub address
-2. CTM summary:
-   - CTM address
-   - CTM protocol semver
-   - number of chains attached
-3. Chains section:
+1. `scan` output:
+   - Bridgehub address
+   - CTM summary:
+     - CTM address
+     - CTM protocol semver
+     - number of chains attached
+2. `inspect` output:
+   - Bridgehub + chain ID
    - `chain_id`
    - `diamond` address
    - `verifier` address
    - `ctm` address
    - chain `protocol` semver
    - chain `admin`
-4. warnings section when calls fail
+3. warnings section when calls fail
 
 ## Key Files
 
