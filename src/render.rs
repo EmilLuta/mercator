@@ -48,11 +48,12 @@ pub fn render_snapshot(snapshot: &ScanSnapshot, verbose: bool) -> String {
         lines.push(format!("Chains ({})", snapshot.chains.len()));
         for chain in &snapshot.chains {
             let diamond = chain.chain_contract.as_deref().unwrap_or("unknown");
+            let verifier = chain.verifier.as_deref().unwrap_or("unknown");
             let admin = chain.admin.as_deref().unwrap_or("unknown");
             let version = chain.protocol_version.as_deref().unwrap_or("unknown");
             lines.push(format!(
-                "  - {} diamond: {} ctm: {} protocol: {} admin: {}",
-                chain.chain_id, diamond, chain.ctm, version, admin
+                "  - {} diamond: {} verifier: {} ctm: {} protocol: {} admin: {}",
+                chain.chain_id, diamond, verifier, chain.ctm, version, admin
             ));
         }
     }
@@ -82,6 +83,7 @@ mod tests {
                 chain_id: 324,
                 ctm: "0x0000000000000000000000000000000000000002".to_string(),
                 chain_contract: Some("0x0000000000000000000000000000000000000003".to_string()),
+                verifier: Some("0x0000000000000000000000000000000000000005".to_string()),
                 admin: Some("0x0000000000000000000000000000000000000004".to_string()),
                 protocol_version: Some("17.0.0".to_string()),
             }],
@@ -96,5 +98,6 @@ mod tests {
         assert!(!output.contains("Chain -> CTM"));
         assert!(output.contains("Chains (1)"));
         assert!(output.contains("324 diamond: 0x0000000000000000000000000000000000000003"));
+        assert!(output.contains("verifier: 0x0000000000000000000000000000000000000005"));
     }
 }

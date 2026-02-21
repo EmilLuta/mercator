@@ -69,10 +69,27 @@ pub fn scan_bridgehub_ctms(
                             }
                         };
 
+                    let verifier = match chain_contract.as_deref() {
+                        Some(chain_contract) => {
+                            match bridgehub::get_chain_verifier(client, chain_contract) {
+                                Ok(address) if !is_zero_address(&address) => Some(address),
+                                Ok(_) => None,
+                                Err(err) => {
+                                    warnings.push(format!(
+                                        "failed to resolve getVerifier for chain {chain_id}: {err}"
+                                    ));
+                                    None
+                                }
+                            }
+                        }
+                        None => None,
+                    };
+
                     chains.push(ChainSummary {
                         chain_id: *chain_id,
                         ctm,
                         chain_contract,
+                        verifier,
                         admin,
                         protocol_version,
                     });
@@ -157,6 +174,7 @@ mod tests {
         let chain_325_data = bridgehub::encode_chain_type_manager_calldata(325);
         let chain_324_zk_chain_data = bridgehub::encode_get_zk_chain_calldata(324);
         let chain_325_zk_chain_data = bridgehub::encode_get_zk_chain_calldata(325);
+        let get_verifier_data = bridgehub::encode_get_verifier_calldata();
         let chain_324_admin_data = bridgehub::encode_get_chain_admin_calldata(324);
         let chain_325_admin_data = bridgehub::encode_get_chain_admin_calldata(325);
         let chain_324_protocol_data = bridgehub::encode_get_chain_protocol_version_calldata(324);
@@ -183,6 +201,10 @@ mod tests {
             .with_response(
                 &chain_325_zk_chain_data,
                 Ok("0x000000000000000000000000dddddddddddddddddddddddddddddddddddddddd".to_string()),
+            )
+            .with_response(
+                &get_verifier_data,
+                Ok("0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff".to_string()),
             )
             .with_response(
                 &chain_324_admin_data,
@@ -224,6 +246,10 @@ mod tests {
         assert_eq!(
             snapshot.chains[0].admin.as_deref(),
             Some("0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
+        );
+        assert_eq!(
+            snapshot.chains[0].verifier.as_deref(),
+            Some("0xffffffffffffffffffffffffffffffffffffffff")
         );
         assert_eq!(
             snapshot.chains[0].protocol_version.as_deref(),

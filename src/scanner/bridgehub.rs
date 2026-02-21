@@ -8,6 +8,7 @@ sol! {
     function getAllZKChainChainIDs() external view returns (uint256[] chainIds);
     function chainTypeManager(uint256 chainId) external view returns (address ctm);
     function getZKChain(uint256 chainId) external view returns (address chainContract);
+    function getVerifier() external view returns (address verifier);
     function protocolVersion() external view returns (uint256 version);
     function getSemverProtocolVersion() external view returns (uint32 major, uint32 minor, uint32 patch);
     function getChainAdmin(uint256 chainId) external view returns (address admin);
@@ -60,6 +61,18 @@ pub fn get_zk_chain(
     let response = client.eth_call(bridgehub, &calldata)?;
     let bytes = decode_hex_data(&response)?;
     let decoded = getZKChainCall::abi_decode_returns(&bytes)
+        .map_err(|err| BridgehubError::Decode(err.to_string()))?;
+    Ok(format!("{decoded:#x}"))
+}
+
+pub fn get_chain_verifier(
+    client: &dyn RpcClient,
+    chain_contract: &str,
+) -> Result<String, BridgehubError> {
+    let calldata = encode_get_verifier_calldata();
+    let response = client.eth_call(chain_contract, &calldata)?;
+    let bytes = decode_hex_data(&response)?;
+    let decoded = getVerifierCall::abi_decode_returns(&bytes)
         .map_err(|err| BridgehubError::Decode(err.to_string()))?;
     Ok(format!("{decoded:#x}"))
 }
@@ -157,6 +170,10 @@ pub fn encode_get_zk_chain_calldata(chain_id: u64) -> String {
     format!("0x{}", hex::encode(calldata))
 }
 
+pub fn encode_get_verifier_calldata() -> String {
+    format!("0x{}", hex::encode(getVerifierCall {}.abi_encode()))
+}
+
 pub fn encode_protocol_version_calldata() -> String {
     format!("0x{}", hex::encode(protocolVersionCall {}.abi_encode()))
 }
@@ -239,6 +256,12 @@ mod tests {
             data,
             "0xe680c4c10000000000000000000000000000000000000000000000000000000000000144"
         );
+    }
+
+    #[test]
+    fn encodes_get_verifier_calldata() {
+        let data = encode_get_verifier_calldata();
+        assert_eq!(data, "0x46657fe9");
     }
 
     #[test]

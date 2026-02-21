@@ -38,6 +38,7 @@ fn scan_bridgehub_ctms_with_scripted_rpc() {
         "0xe680c4c10000000000000000000000000000000000000000000000000000000000000145";
     let chain_326_zk_chain_data =
         "0xe680c4c10000000000000000000000000000000000000000000000000000000000000146";
+    let get_verifier_data = "0x46657fe9";
     let chain_324_admin_data =
         "0x301e77650000000000000000000000000000000000000000000000000000000000000144";
     let chain_325_admin_data =
@@ -86,6 +87,10 @@ fn scan_bridgehub_ctms_with_scripted_rpc() {
         .with_response(
             chain_326_zk_chain_data,
             Ok("0x000000000000000000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee".to_string()),
+        )
+        .with_response(
+            get_verifier_data,
+            Ok("0x000000000000000000000000abababababababababababababababababababab".to_string()),
         )
         .with_response(
             chain_324_admin_data,
@@ -140,6 +145,10 @@ fn scan_bridgehub_ctms_with_scripted_rpc() {
     assert_eq!(
         snapshot.chains[0].admin.as_deref(),
         Some("0x9999999999999999999999999999999999999999")
+    );
+    assert_eq!(
+        snapshot.chains[0].verifier.as_deref(),
+        Some("0xabababababababababababababababababababab")
     );
     assert_eq!(
         snapshot.chains[0].protocol_version.as_deref(),

@@ -17,9 +17,10 @@ cargo run -- scan \
 - CTM addresses resolved via `chainTypeManager(chainId)`
 - CTM protocol versions from `protocolVersion()`
 - Deduplicated CTM summary with per-CTM chain counts
+- Per-chain verifier from chain getters `getVerifier()`
 
 ## Next slices
 
-- Per-chain core contracts (diamond proxy, verifier)
+- Chain contract introspection and call-path fallback strategy
 - Privileged roles (owner/admin upgrade authorities)
 - Better diagnostics and verbosity controls
