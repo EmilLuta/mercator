@@ -8,6 +8,7 @@ sol! {
     function getAllZKChainChainIDs() external view returns (uint256[] chainIds);
     function chainTypeManager(uint256 chainId) external view returns (address ctm);
     function getZKChain(uint256 chainId) external view returns (address chainContract);
+    function owner() external view returns (address ownerAddress);
     function validatorTimelock() external view returns (address validatorTimelock);
     function validatorTimelockPostV29() external view returns (address validatorTimelockPostV29);
     function protocolVersion() external view returns (uint256 version);
@@ -102,6 +103,18 @@ pub fn get_ctm_chain_protocol_semver(
     Ok(format!("{major}.{minor}.{patch}"))
 }
 
+pub fn get_contract_owner(
+    client: &dyn RpcClient,
+    contract: &str,
+) -> Result<String, BridgehubError> {
+    let calldata = encode_owner_calldata();
+    let response = client.eth_call(contract, &calldata)?;
+    let bytes = decode_hex_data(&response)?;
+    let decoded = ownerCall::abi_decode_returns(&bytes)
+        .map_err(|err| BridgehubError::Decode(err.to_string()))?;
+    Ok(format!("{decoded:#x}"))
+}
+
 pub fn get_ctm_validator_timelock(
     client: &dyn RpcClient,
     ctm: &str,
@@ -194,6 +207,10 @@ pub fn encode_get_zk_chain_calldata(chain_id: u64) -> String {
     }
     .abi_encode();
     format!("0x{}", hex::encode(calldata))
+}
+
+pub fn encode_owner_calldata() -> String {
+    format!("0x{}", hex::encode(ownerCall {}.abi_encode()))
 }
 
 pub fn encode_validator_timelock_calldata() -> String {
@@ -293,6 +310,12 @@ mod tests {
             data,
             "0xe680c4c10000000000000000000000000000000000000000000000000000000000000144"
         );
+    }
+
+    #[test]
+    fn encodes_owner_calldata() {
+        let data = encode_owner_calldata();
+        assert_eq!(data, "0x8da5cb5b");
     }
 
     #[test]

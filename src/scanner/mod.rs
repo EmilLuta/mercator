@@ -134,6 +134,20 @@ pub fn inspect_bridgehub_chain(
         None => None,
     };
 
+    let admin_owner = match admin.as_deref() {
+        Some(admin) => match bridgehub::get_contract_owner(client, admin) {
+            Ok(address) if !is_zero_address(&address) => Some(address),
+            Ok(_) => None,
+            Err(err) => {
+                warnings.push(format!(
+                    "failed to resolve owner() for admin on chain {chain_id}: {err}"
+                ));
+                None
+            }
+        },
+        None => None,
+    };
+
     let protocol_version = match ctm.as_deref() {
         Some(ctm) => match bridgehub::get_ctm_chain_protocol_semver(client, ctm, chain_id) {
             Ok(version) => Some(version),
@@ -155,6 +169,7 @@ pub fn inspect_bridgehub_chain(
             validator_timelock,
             chain_contract,
             admin,
+            admin_owner,
             protocol_version,
         },
         warnings,
@@ -240,6 +255,7 @@ mod tests {
         let chain_324_zk_chain_data = bridgehub::encode_get_zk_chain_calldata(324);
         let validator_timelock_data = bridgehub::encode_validator_timelock_post_v29_calldata();
         let chain_324_admin_data = bridgehub::encode_get_chain_admin_calldata(324);
+        let owner_data = bridgehub::encode_owner_calldata();
         let chain_324_protocol_data = bridgehub::encode_get_chain_protocol_version_calldata(324);
 
         let mock = MockRpcClient::default()
@@ -272,6 +288,13 @@ mod tests {
                 ),
             )
             .with_response(
+                &owner_data,
+                Ok(
+                    "0x0000000000000000000000004444444444444444444444444444444444444444"
+                        .to_string(),
+                ),
+            )
+            .with_response(
                 &chain_324_protocol_data,
                 Ok(
                     "0x0000000000000000000000000000000000000000000000000000000000000007"
@@ -299,6 +322,10 @@ mod tests {
         assert_eq!(
             inspection.chain.admin.as_deref(),
             Some("0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
+        );
+        assert_eq!(
+            inspection.chain.admin_owner.as_deref(),
+            Some("0x4444444444444444444444444444444444444444")
         );
         assert_eq!(inspection.chain.protocol_version.as_deref(), Some("0.0.7"));
         assert!(inspection.warnings.is_empty());

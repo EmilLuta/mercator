@@ -69,6 +69,7 @@ pub fn render_chain_inspection(inspection: &ChainInspection, verbose: bool) -> S
     let validator_timelock = chain.validator_timelock.as_deref().unwrap_or("unknown");
     let diamond = chain.chain_contract.as_deref().unwrap_or("unknown");
     let admin = chain.admin.as_deref().unwrap_or("unknown");
+    let admin_owner = chain.admin_owner.as_deref().unwrap_or("unknown");
     let protocol = chain.protocol_version.as_deref().unwrap_or("unknown");
 
     let mut lines = vec![
@@ -80,7 +81,7 @@ pub fn render_chain_inspection(inspection: &ChainInspection, verbose: bool) -> S
         format!("  - ValidatorTimelock: {validator_timelock}"),
         format!("  - Diamond: {diamond}"),
         format!("  - Protocol: {protocol}"),
-        format!("  - Admin: {admin}"),
+        format!("  - Admin: {admin} (owner: {admin_owner})"),
     ];
 
     if !inspection.warnings.is_empty() {
@@ -144,6 +145,7 @@ mod tests {
                 validator_timelock: Some("0x0000000000000000000000000000000000000006".to_string()),
                 chain_contract: Some("0x0000000000000000000000000000000000000003".to_string()),
                 admin: Some("0x0000000000000000000000000000000000000004".to_string()),
+                admin_owner: Some("0x0000000000000000000000000000000000000007".to_string()),
                 protocol_version: Some("17.0.0".to_string()),
             },
             warnings: vec![],
@@ -154,6 +156,8 @@ mod tests {
         assert!(output.contains("Details"));
         assert!(output.contains("CTM: 0x0000000000000000000000000000000000000002"));
         assert!(output.contains("ValidatorTimelock: 0x0000000000000000000000000000000000000006"));
+        assert!(output
+            .contains("Admin: 0x0000000000000000000000000000000000000004 (owner: 0x0000000000000000000000000000000000000007)"));
         assert!(!output.contains("Verifier:"));
     }
 }

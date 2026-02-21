@@ -30,6 +30,7 @@ mercator inspect --rpc-url <RPC_URL> --bridgehub <BRIDGEHUB_ADDRESS> --chain-id 
    - chain diamond proxy: `getZKChain(chainId)`
    - chain validator timelock: `validatorTimelockPostV29()` with fallback to `validatorTimelock()` (via CTM)
    - chain admin: `getChainAdmin(chainId)` (via CTM)
+   - admin owner: `owner()` on admin contract (when implemented)
    - per-chain protocol version semver: `getProtocolVersion(chainId)` (via CTM)
 
 ## Output Shape (Current)
@@ -48,6 +49,7 @@ mercator inspect --rpc-url <RPC_URL> --bridgehub <BRIDGEHUB_ADDRESS> --chain-id 
    - `ctm` address
    - chain `protocol` semver
    - chain `admin`
+   - `admin_owner` (when available)
 3. warnings section when calls fail
 
 ## Key Files
