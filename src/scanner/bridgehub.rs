@@ -7,8 +7,11 @@ use crate::rpc::{RpcClient, RpcError};
 sol! {
     function getAllZKChainChainIDs() external view returns (uint256[] chainIds);
     function chainTypeManager(uint256 chainId) external view returns (address ctm);
+    function getZKChain(uint256 chainId) external view returns (address chainContract);
     function protocolVersion() external view returns (uint256 version);
     function getSemverProtocolVersion() external view returns (uint32 major, uint32 minor, uint32 patch);
+    function getChainAdmin(uint256 chainId) external view returns (address admin);
+    function getProtocolVersion(uint256 chainId) external view returns (uint256 version);
 }
 
 #[derive(Debug, Error)]
@@ -48,6 +51,19 @@ pub fn get_chain_type_manager(
     Ok(format!("{decoded:#x}"))
 }
 
+pub fn get_zk_chain(
+    client: &dyn RpcClient,
+    bridgehub: &str,
+    chain_id: u64,
+) -> Result<String, BridgehubError> {
+    let calldata = encode_get_zk_chain_calldata(chain_id);
+    let response = client.eth_call(bridgehub, &calldata)?;
+    let bytes = decode_hex_data(&response)?;
+    let decoded = getZKChainCall::abi_decode_returns(&bytes)
+        .map_err(|err| BridgehubError::Decode(err.to_string()))?;
+    Ok(format!("{decoded:#x}"))
+}
+
 pub fn get_ctm_protocol_semver(
     client: &dyn RpcClient,
     ctm: &str,
@@ -57,6 +73,29 @@ pub fn get_ctm_protocol_semver(
     }
 
     let raw = get_ctm_protocol_version_raw(client, ctm)?;
+    let (major, minor, patch) = decode_packed_semver(raw)?;
+    Ok(format!("{major}.{minor}.{patch}"))
+}
+
+pub fn get_ctm_chain_admin(
+    client: &dyn RpcClient,
+    ctm: &str,
+    chain_id: u64,
+) -> Result<String, BridgehubError> {
+    let calldata = encode_get_chain_admin_calldata(chain_id);
+    let response = client.eth_call(ctm, &calldata)?;
+    let bytes = decode_hex_data(&response)?;
+    let decoded = getChainAdminCall::abi_decode_returns(&bytes)
+        .map_err(|err| BridgehubError::Decode(err.to_string()))?;
+    Ok(format!("{decoded:#x}"))
+}
+
+pub fn get_ctm_chain_protocol_semver(
+    client: &dyn RpcClient,
+    ctm: &str,
+    chain_id: u64,
+) -> Result<String, BridgehubError> {
+    let raw = get_ctm_chain_protocol_version_raw(client, ctm, chain_id)?;
     let (major, minor, patch) = decode_packed_semver(raw)?;
     Ok(format!("{major}.{minor}.{patch}"))
 }
@@ -82,6 +121,19 @@ fn get_ctm_protocol_version_raw(client: &dyn RpcClient, ctm: &str) -> Result<U25
     Ok(decoded)
 }
 
+fn get_ctm_chain_protocol_version_raw(
+    client: &dyn RpcClient,
+    ctm: &str,
+    chain_id: u64,
+) -> Result<U256, BridgehubError> {
+    let calldata = encode_get_chain_protocol_version_calldata(chain_id);
+    let response = client.eth_call(ctm, &calldata)?;
+    let bytes = decode_hex_data(&response)?;
+    let decoded = getProtocolVersionCall::abi_decode_returns(&bytes)
+        .map_err(|err| BridgehubError::Decode(err.to_string()))?;
+    Ok(decoded)
+}
+
 pub fn encode_get_all_zk_chain_chain_ids_calldata() -> String {
     format!(
         "0x{}",
@@ -97,6 +149,14 @@ pub fn encode_chain_type_manager_calldata(chain_id: u64) -> String {
     format!("0x{}", hex::encode(calldata))
 }
 
+pub fn encode_get_zk_chain_calldata(chain_id: u64) -> String {
+    let calldata = getZKChainCall {
+        chainId: U256::from(chain_id),
+    }
+    .abi_encode();
+    format!("0x{}", hex::encode(calldata))
+}
+
 pub fn encode_protocol_version_calldata() -> String {
     format!("0x{}", hex::encode(protocolVersionCall {}.abi_encode()))
 }
@@ -106,6 +166,22 @@ pub fn encode_get_semver_protocol_version_calldata() -> String {
         "0x{}",
         hex::encode(getSemverProtocolVersionCall {}.abi_encode())
     )
+}
+
+pub fn encode_get_chain_admin_calldata(chain_id: u64) -> String {
+    let calldata = getChainAdminCall {
+        chainId: U256::from(chain_id),
+    }
+    .abi_encode();
+    format!("0x{}", hex::encode(calldata))
+}
+
+pub fn encode_get_chain_protocol_version_calldata(chain_id: u64) -> String {
+    let calldata = getProtocolVersionCall {
+        chainId: U256::from(chain_id),
+    }
+    .abi_encode();
+    format!("0x{}", hex::encode(calldata))
 }
 
 fn decode_hex_data(value: &str) -> Result<Vec<u8>, BridgehubError> {
@@ -157,6 +233,15 @@ mod tests {
     }
 
     #[test]
+    fn encodes_get_zk_chain_calldata() {
+        let data = encode_get_zk_chain_calldata(324);
+        assert_eq!(
+            data,
+            "0xe680c4c10000000000000000000000000000000000000000000000000000000000000144"
+        );
+    }
+
+    #[test]
     fn encodes_protocol_version_calldata() {
         let data = encode_protocol_version_calldata();
         assert_eq!(data, "0x2ae9c600");
@@ -166,6 +251,24 @@ mod tests {
     fn encodes_get_semver_protocol_version_calldata() {
         let data = encode_get_semver_protocol_version_calldata();
         assert_eq!(data, "0xf5c1182c");
+    }
+
+    #[test]
+    fn encodes_get_chain_admin_calldata() {
+        let data = encode_get_chain_admin_calldata(324);
+        assert_eq!(
+            data,
+            "0x301e77650000000000000000000000000000000000000000000000000000000000000144"
+        );
+    }
+
+    #[test]
+    fn encodes_get_chain_protocol_version_calldata() {
+        let data = encode_get_chain_protocol_version_calldata(324);
+        assert_eq!(
+            data,
+            "0xba2389470000000000000000000000000000000000000000000000000000000000000144"
+        );
     }
 
     #[test]

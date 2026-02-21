@@ -32,6 +32,24 @@ fn scan_bridgehub_ctms_with_scripted_rpc() {
     let bridgehub = "0x1111111111111111111111111111111111111111";
     let chain_ids_data = "0x68b8d331";
     let protocol_version_data = "0x2ae9c600";
+    let chain_324_zk_chain_data =
+        "0xe680c4c10000000000000000000000000000000000000000000000000000000000000144";
+    let chain_325_zk_chain_data =
+        "0xe680c4c10000000000000000000000000000000000000000000000000000000000000145";
+    let chain_326_zk_chain_data =
+        "0xe680c4c10000000000000000000000000000000000000000000000000000000000000146";
+    let chain_324_admin_data =
+        "0x301e77650000000000000000000000000000000000000000000000000000000000000144";
+    let chain_325_admin_data =
+        "0x301e77650000000000000000000000000000000000000000000000000000000000000145";
+    let chain_326_admin_data =
+        "0x301e77650000000000000000000000000000000000000000000000000000000000000146";
+    let chain_324_protocol_data =
+        "0xba2389470000000000000000000000000000000000000000000000000000000000000144";
+    let chain_325_protocol_data =
+        "0xba2389470000000000000000000000000000000000000000000000000000000000000145";
+    let chain_326_protocol_data =
+        "0xba2389470000000000000000000000000000000000000000000000000000000000000146";
 
     let rpc = ScriptedRpc::default()
         .with_response(
@@ -58,6 +76,42 @@ fn scan_bridgehub_ctms_with_scripted_rpc() {
             Ok("0x000000000000000000000000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string()),
         )
         .with_response(
+            chain_324_zk_chain_data,
+            Ok("0x000000000000000000000000cccccccccccccccccccccccccccccccccccccccc".to_string()),
+        )
+        .with_response(
+            chain_325_zk_chain_data,
+            Ok("0x000000000000000000000000dddddddddddddddddddddddddddddddddddddddd".to_string()),
+        )
+        .with_response(
+            chain_326_zk_chain_data,
+            Ok("0x000000000000000000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee".to_string()),
+        )
+        .with_response(
+            chain_324_admin_data,
+            Ok("0x0000000000000000000000009999999999999999999999999999999999999999".to_string()),
+        )
+        .with_response(
+            chain_325_admin_data,
+            Ok("0x0000000000000000000000009999999999999999999999999999999999999999".to_string()),
+        )
+        .with_response(
+            chain_326_admin_data,
+            Ok("0x0000000000000000000000009999999999999999999999999999999999999999".to_string()),
+        )
+        .with_response(
+            chain_324_protocol_data,
+            Ok("0x000000000000000000000000000000000000000000000000000000000000002a".to_string()),
+        )
+        .with_response(
+            chain_325_protocol_data,
+            Ok("0x000000000000000000000000000000000000000000000000000000000000002a".to_string()),
+        )
+        .with_response(
+            chain_326_protocol_data,
+            Ok("0x000000000000000000000000000000000000000000000000000000000000002a".to_string()),
+        )
+        .with_response(
             protocol_version_data,
             Ok("0x000000000000000000000000000000000000000000000000000000000000002a".to_string()),
         );
@@ -66,6 +120,7 @@ fn scan_bridgehub_ctms_with_scripted_rpc() {
 
     assert_eq!(snapshot.chain_ids, vec![324, 325, 326]);
     assert_eq!(snapshot.chain_ctms.len(), 3);
+    assert_eq!(snapshot.chains.len(), 3);
     assert_eq!(snapshot.ctms.len(), 2);
     assert!(snapshot.warnings.is_empty());
     assert_eq!(
@@ -78,4 +133,16 @@ fn scan_bridgehub_ctms_with_scripted_rpc() {
         "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     );
     assert_eq!(snapshot.ctms[1].protocol_version.as_deref(), Some("0.0.42"));
+    assert_eq!(
+        snapshot.chains[0].chain_contract.as_deref(),
+        Some("0xcccccccccccccccccccccccccccccccccccccccc")
+    );
+    assert_eq!(
+        snapshot.chains[0].admin.as_deref(),
+        Some("0x9999999999999999999999999999999999999999")
+    );
+    assert_eq!(
+        snapshot.chains[0].protocol_version.as_deref(),
+        Some("0.0.42")
+    );
 }

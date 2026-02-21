@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use thiserror::Error;
 
-use crate::model::{ChainCtm, CtmSummary, ScanSnapshot};
+use crate::model::{ChainCtm, ChainSummary, CtmSummary, ScanSnapshot};
 use crate::rpc::RpcClient;
 
 pub mod bridgehub;
@@ -19,6 +19,7 @@ pub fn scan_bridgehub_ctms(
 ) -> Result<ScanSnapshot, ScanError> {
     let chain_ids = bridgehub::get_all_zk_chain_chain_ids(client, bridgehub)?;
     let mut chain_ctms = Vec::with_capacity(chain_ids.len());
+    let mut chains = Vec::with_capacity(chain_ids.len());
     let mut warnings = Vec::new();
 
     for chain_id in &chain_ids {
@@ -31,7 +32,49 @@ pub fn scan_bridgehub_ctms(
                 } else {
                     chain_ctms.push(ChainCtm {
                         chain_id: *chain_id,
+                        ctm: ctm.clone(),
+                    });
+
+                    let chain_contract = match bridgehub::get_zk_chain(client, bridgehub, *chain_id)
+                    {
+                        Ok(address) if !is_zero_address(&address) => Some(address),
+                        Ok(_) => None,
+                        Err(err) => {
+                            warnings.push(format!(
+                                "failed to resolve getZKChain for chain {chain_id}: {err}"
+                            ));
+                            None
+                        }
+                    };
+
+                    let admin = match bridgehub::get_ctm_chain_admin(client, &ctm, *chain_id) {
+                        Ok(address) if !is_zero_address(&address) => Some(address),
+                        Ok(_) => None,
+                        Err(err) => {
+                            warnings.push(format!(
+                                "failed to resolve getChainAdmin for chain {chain_id}: {err}"
+                            ));
+                            None
+                        }
+                    };
+
+                    let protocol_version =
+                        match bridgehub::get_ctm_chain_protocol_semver(client, &ctm, *chain_id) {
+                            Ok(version) => Some(version),
+                            Err(err) => {
+                                warnings.push(format!(
+                                "failed to resolve getProtocolVersion for chain {chain_id}: {err}"
+                            ));
+                                None
+                            }
+                        };
+
+                    chains.push(ChainSummary {
+                        chain_id: *chain_id,
                         ctm,
+                        chain_contract,
+                        admin,
+                        protocol_version,
                     });
                 }
             }
@@ -68,8 +111,13 @@ pub fn scan_bridgehub_ctms(
         chain_ids,
         chain_ctms,
         ctms,
+        chains,
         warnings,
     })
+}
+
+fn is_zero_address(address: &str) -> bool {
+    address == "0x0000000000000000000000000000000000000000"
 }
 
 #[cfg(test)]
@@ -107,6 +155,12 @@ mod tests {
         let chain_ids_data = bridgehub::encode_get_all_zk_chain_chain_ids_calldata();
         let chain_324_data = bridgehub::encode_chain_type_manager_calldata(324);
         let chain_325_data = bridgehub::encode_chain_type_manager_calldata(325);
+        let chain_324_zk_chain_data = bridgehub::encode_get_zk_chain_calldata(324);
+        let chain_325_zk_chain_data = bridgehub::encode_get_zk_chain_calldata(325);
+        let chain_324_admin_data = bridgehub::encode_get_chain_admin_calldata(324);
+        let chain_325_admin_data = bridgehub::encode_get_chain_admin_calldata(325);
+        let chain_324_protocol_data = bridgehub::encode_get_chain_protocol_version_calldata(324);
+        let chain_325_protocol_data = bridgehub::encode_get_chain_protocol_version_calldata(325);
         let protocol_version_data = bridgehub::encode_protocol_version_calldata();
 
         let mock = MockRpcClient::default()
@@ -123,6 +177,30 @@ mod tests {
                 Ok("0x000000000000000000000000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string()),
             )
             .with_response(
+                &chain_324_zk_chain_data,
+                Ok("0x000000000000000000000000cccccccccccccccccccccccccccccccccccccccc".to_string()),
+            )
+            .with_response(
+                &chain_325_zk_chain_data,
+                Ok("0x000000000000000000000000dddddddddddddddddddddddddddddddddddddddd".to_string()),
+            )
+            .with_response(
+                &chain_324_admin_data,
+                Ok("0x000000000000000000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee".to_string()),
+            )
+            .with_response(
+                &chain_325_admin_data,
+                Ok("0x000000000000000000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee".to_string()),
+            )
+            .with_response(
+                &chain_324_protocol_data,
+                Ok("0x0000000000000000000000000000000000000000000000000000000000000007".to_string()),
+            )
+            .with_response(
+                &chain_325_protocol_data,
+                Ok("0x0000000000000000000000000000000000000000000000000000000000000007".to_string()),
+            )
+            .with_response(
                 &protocol_version_data,
                 Ok("0x0000000000000000000000000000000000000000000000000000000000000007".to_string()),
             );
@@ -132,11 +210,24 @@ mod tests {
 
         assert_eq!(snapshot.chain_ids, vec![324, 325]);
         assert_eq!(snapshot.chain_ctms.len(), 2);
+        assert_eq!(snapshot.chains.len(), 2);
         assert_eq!(snapshot.ctms.len(), 1);
         assert_eq!(
             snapshot.ctms[0].address,
             "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         );
         assert_eq!(snapshot.ctms[0].protocol_version, Some("0.0.7".to_string()));
+        assert_eq!(
+            snapshot.chains[0].chain_contract.as_deref(),
+            Some("0xcccccccccccccccccccccccccccccccccccccccc")
+        );
+        assert_eq!(
+            snapshot.chains[0].admin.as_deref(),
+            Some("0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
+        );
+        assert_eq!(
+            snapshot.chains[0].protocol_version.as_deref(),
+            Some("0.0.7")
+        );
     }
 }

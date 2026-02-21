@@ -43,13 +43,27 @@ pub fn render_snapshot(snapshot: &ScanSnapshot, verbose: bool) -> String {
         lines.push("  - none".to_string());
     }
 
+    if !snapshot.chains.is_empty() {
+        lines.push(String::new());
+        lines.push(format!("Chains ({})", snapshot.chains.len()));
+        for chain in &snapshot.chains {
+            let diamond = chain.chain_contract.as_deref().unwrap_or("unknown");
+            let admin = chain.admin.as_deref().unwrap_or("unknown");
+            let version = chain.protocol_version.as_deref().unwrap_or("unknown");
+            lines.push(format!(
+                "  - {} diamond: {} ctm: {} protocol: {} admin: {}",
+                chain.chain_id, diamond, chain.ctm, version, admin
+            ));
+        }
+    }
+
     lines.join("\n")
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{ChainCtm, CtmSummary, ScanSnapshot};
+    use crate::model::{ChainCtm, ChainSummary, CtmSummary, ScanSnapshot};
 
     #[test]
     fn renders_basic_snapshot() {
@@ -64,6 +78,13 @@ mod tests {
                 address: "0x0000000000000000000000000000000000000002".to_string(),
                 protocol_version: Some("17".to_string()),
             }],
+            chains: vec![ChainSummary {
+                chain_id: 324,
+                ctm: "0x0000000000000000000000000000000000000002".to_string(),
+                chain_contract: Some("0x0000000000000000000000000000000000000003".to_string()),
+                admin: Some("0x0000000000000000000000000000000000000004".to_string()),
+                protocol_version: Some("17.0.0".to_string()),
+            }],
             warnings: vec![],
         };
 
@@ -73,5 +94,7 @@ mod tests {
             "0x0000000000000000000000000000000000000002 (protocol version: 17, 1 chains)"
         ));
         assert!(!output.contains("Chain -> CTM"));
+        assert!(output.contains("Chains (1)"));
+        assert!(output.contains("324 diamond: 0x0000000000000000000000000000000000000003"));
     }
 }
