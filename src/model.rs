@@ -14,8 +14,8 @@ pub struct CtmSummary {
 pub struct ChainSummary {
     pub chain_id: u64,
     pub ctm: Option<String>,
+    pub validator_timelock: Option<String>,
     pub chain_contract: Option<String>,
-    pub verifier: Option<String>,
     pub admin: Option<String>,
     pub protocol_version: Option<String>,
 }

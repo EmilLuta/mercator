@@ -66,8 +66,8 @@ pub fn render_topology(snapshot: &TopologySnapshot, verbose: bool) -> String {
 pub fn render_chain_inspection(inspection: &ChainInspection, verbose: bool) -> String {
     let chain = &inspection.chain;
     let ctm = chain.ctm.as_deref().unwrap_or("unknown");
+    let validator_timelock = chain.validator_timelock.as_deref().unwrap_or("unknown");
     let diamond = chain.chain_contract.as_deref().unwrap_or("unknown");
-    let verifier = chain.verifier.as_deref().unwrap_or("unknown");
     let admin = chain.admin.as_deref().unwrap_or("unknown");
     let protocol = chain.protocol_version.as_deref().unwrap_or("unknown");
 
@@ -77,8 +77,8 @@ pub fn render_chain_inspection(inspection: &ChainInspection, verbose: bool) -> S
         String::new(),
         "Details".to_string(),
         format!("  - CTM: {ctm}"),
+        format!("  - ValidatorTimelock: {validator_timelock}"),
         format!("  - Diamond: {diamond}"),
-        format!("  - Verifier: {verifier}"),
         format!("  - Protocol: {protocol}"),
         format!("  - Admin: {admin}"),
     ];
@@ -141,8 +141,8 @@ mod tests {
             chain: ChainSummary {
                 chain_id: 324,
                 ctm: Some("0x0000000000000000000000000000000000000002".to_string()),
+                validator_timelock: Some("0x0000000000000000000000000000000000000006".to_string()),
                 chain_contract: Some("0x0000000000000000000000000000000000000003".to_string()),
-                verifier: Some("0x0000000000000000000000000000000000000005".to_string()),
                 admin: Some("0x0000000000000000000000000000000000000004".to_string()),
                 protocol_version: Some("17.0.0".to_string()),
             },
@@ -153,6 +153,7 @@ mod tests {
         assert!(output.contains("Chain ID: 324"));
         assert!(output.contains("Details"));
         assert!(output.contains("CTM: 0x0000000000000000000000000000000000000002"));
-        assert!(output.contains("Verifier: 0x0000000000000000000000000000000000000005"));
+        assert!(output.contains("ValidatorTimelock: 0x0000000000000000000000000000000000000006"));
+        assert!(!output.contains("Verifier:"));
     }
 }

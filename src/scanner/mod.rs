@@ -106,13 +106,13 @@ pub fn inspect_bridgehub_chain(
         }
     };
 
-    let verifier = match chain_contract.as_deref() {
-        Some(chain_contract) => match bridgehub::get_chain_verifier(client, chain_contract) {
+    let validator_timelock = match ctm.as_deref() {
+        Some(ctm) => match bridgehub::get_ctm_validator_timelock(client, ctm) {
             Ok(address) if !is_zero_address(&address) => Some(address),
             Ok(_) => None,
             Err(err) => {
                 warnings.push(format!(
-                    "failed to resolve getVerifier for chain {chain_id}: {err}"
+                    "failed to resolve validator timelock for chain {chain_id}: {err}"
                 ));
                 None
             }
@@ -152,8 +152,8 @@ pub fn inspect_bridgehub_chain(
         chain: ChainSummary {
             chain_id,
             ctm,
+            validator_timelock,
             chain_contract,
-            verifier,
             admin,
             protocol_version,
         },
@@ -238,7 +238,7 @@ mod tests {
     fn inspect_chain_resolves_deep_details() {
         let chain_324_data = bridgehub::encode_chain_type_manager_calldata(324);
         let chain_324_zk_chain_data = bridgehub::encode_get_zk_chain_calldata(324);
-        let get_verifier_data = bridgehub::encode_get_verifier_calldata();
+        let validator_timelock_data = bridgehub::encode_validator_timelock_post_v29_calldata();
         let chain_324_admin_data = bridgehub::encode_get_chain_admin_calldata(324);
         let chain_324_protocol_data = bridgehub::encode_get_chain_protocol_version_calldata(324);
 
@@ -258,9 +258,9 @@ mod tests {
                 ),
             )
             .with_response(
-                &get_verifier_data,
+                &validator_timelock_data,
                 Ok(
-                    "0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff"
+                    "0x0000000000000000000000007777777777777777777777777777777777777777"
                         .to_string(),
                 ),
             )
@@ -293,8 +293,8 @@ mod tests {
             Some("0xcccccccccccccccccccccccccccccccccccccccc")
         );
         assert_eq!(
-            inspection.chain.verifier.as_deref(),
-            Some("0xffffffffffffffffffffffffffffffffffffffff")
+            inspection.chain.validator_timelock.as_deref(),
+            Some("0x7777777777777777777777777777777777777777")
         );
         assert_eq!(
             inspection.chain.admin.as_deref(),

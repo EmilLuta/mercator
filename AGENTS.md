@@ -72,7 +72,7 @@ Goal: inspect one chain in detail from `bridgehub + chain_id`.
 
 Acceptance:
 
-- Resolves chain contract, verifier, admin, and protocol version where available.
+- Resolves chain contract, validator timelock, admin, and protocol version where available.
 - Partial failures degrade to warnings with explicit failed call names.
 - Output is field-oriented and readable for single-chain triage.
 
@@ -101,7 +101,7 @@ Acceptance:
 When we do not know available Bridgehub/CTM methods:
 
 1. Locate verified source or ABI from canonical zkSync repositories or explorers.
-2. Enumerate candidate read methods for CTMs/chains/verifiers/admin.
+2. Enumerate candidate read methods for CTMs/chains/timelock/admin.
 3. Implement minimal call path for one field.
 4. Add tests for decode and failure behavior.
 5. Repeat field by field.

@@ -15,7 +15,7 @@ Adopt a two-command operator workflow:
    - `inspect`: deep chain details
 
 2. Add chain contract introspection around diamond.
-   - Identify whether diamond exposes direct verifier/admin getters.
+   - Identify whether diamond exposes direct timelock/admin getters.
    - Add call-path fallback strategy with explicit warnings.
 
 3. Add role/account clarity.

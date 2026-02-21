@@ -8,7 +8,8 @@ sol! {
     function getAllZKChainChainIDs() external view returns (uint256[] chainIds);
     function chainTypeManager(uint256 chainId) external view returns (address ctm);
     function getZKChain(uint256 chainId) external view returns (address chainContract);
-    function getVerifier() external view returns (address verifier);
+    function validatorTimelock() external view returns (address validatorTimelock);
+    function validatorTimelockPostV29() external view returns (address validatorTimelockPostV29);
     function protocolVersion() external view returns (uint256 version);
     function getSemverProtocolVersion() external view returns (uint32 major, uint32 minor, uint32 patch);
     function getChainAdmin(uint256 chainId) external view returns (address admin);
@@ -65,18 +66,6 @@ pub fn get_zk_chain(
     Ok(format!("{decoded:#x}"))
 }
 
-pub fn get_chain_verifier(
-    client: &dyn RpcClient,
-    chain_contract: &str,
-) -> Result<String, BridgehubError> {
-    let calldata = encode_get_verifier_calldata();
-    let response = client.eth_call(chain_contract, &calldata)?;
-    let bytes = decode_hex_data(&response)?;
-    let decoded = getVerifierCall::abi_decode_returns(&bytes)
-        .map_err(|err| BridgehubError::Decode(err.to_string()))?;
-    Ok(format!("{decoded:#x}"))
-}
-
 pub fn get_ctm_protocol_semver(
     client: &dyn RpcClient,
     ctm: &str,
@@ -113,6 +102,19 @@ pub fn get_ctm_chain_protocol_semver(
     Ok(format!("{major}.{minor}.{patch}"))
 }
 
+pub fn get_ctm_validator_timelock(
+    client: &dyn RpcClient,
+    ctm: &str,
+) -> Result<String, BridgehubError> {
+    if let Ok(address) = get_ctm_validator_timelock_post_v29(client, ctm)
+        && !is_zero_address(&address)
+    {
+        return Ok(address);
+    }
+
+    get_ctm_validator_timelock_legacy(client, ctm)
+}
+
 fn get_ctm_semver_components(
     client: &dyn RpcClient,
     ctm: &str,
@@ -147,6 +149,30 @@ fn get_ctm_chain_protocol_version_raw(
     Ok(decoded)
 }
 
+fn get_ctm_validator_timelock_post_v29(
+    client: &dyn RpcClient,
+    ctm: &str,
+) -> Result<String, BridgehubError> {
+    let calldata = encode_validator_timelock_post_v29_calldata();
+    let response = client.eth_call(ctm, &calldata)?;
+    let bytes = decode_hex_data(&response)?;
+    let decoded = validatorTimelockPostV29Call::abi_decode_returns(&bytes)
+        .map_err(|err| BridgehubError::Decode(err.to_string()))?;
+    Ok(format!("{decoded:#x}"))
+}
+
+fn get_ctm_validator_timelock_legacy(
+    client: &dyn RpcClient,
+    ctm: &str,
+) -> Result<String, BridgehubError> {
+    let calldata = encode_validator_timelock_calldata();
+    let response = client.eth_call(ctm, &calldata)?;
+    let bytes = decode_hex_data(&response)?;
+    let decoded = validatorTimelockCall::abi_decode_returns(&bytes)
+        .map_err(|err| BridgehubError::Decode(err.to_string()))?;
+    Ok(format!("{decoded:#x}"))
+}
+
 pub fn encode_get_all_zk_chain_chain_ids_calldata() -> String {
     format!(
         "0x{}",
@@ -170,8 +196,15 @@ pub fn encode_get_zk_chain_calldata(chain_id: u64) -> String {
     format!("0x{}", hex::encode(calldata))
 }
 
-pub fn encode_get_verifier_calldata() -> String {
-    format!("0x{}", hex::encode(getVerifierCall {}.abi_encode()))
+pub fn encode_validator_timelock_calldata() -> String {
+    format!("0x{}", hex::encode(validatorTimelockCall {}.abi_encode()))
+}
+
+pub fn encode_validator_timelock_post_v29_calldata() -> String {
+    format!(
+        "0x{}",
+        hex::encode(validatorTimelockPostV29Call {}.abi_encode())
+    )
 }
 
 pub fn encode_protocol_version_calldata() -> String {
@@ -230,6 +263,10 @@ fn decode_packed_semver(value: U256) -> Result<(u32, u32, u32), BridgehubError> 
     Ok((major, minor, patch))
 }
 
+fn is_zero_address(address: &str) -> bool {
+    address == "0x0000000000000000000000000000000000000000"
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -259,9 +296,15 @@ mod tests {
     }
 
     #[test]
-    fn encodes_get_verifier_calldata() {
-        let data = encode_get_verifier_calldata();
-        assert_eq!(data, "0x46657fe9");
+    fn encodes_validator_timelock_calldata() {
+        let data = encode_validator_timelock_calldata();
+        assert_eq!(data, "0xe66c8c44");
+    }
+
+    #[test]
+    fn encodes_validator_timelock_post_v29_calldata() {
+        let data = encode_validator_timelock_post_v29_calldata();
+        assert_eq!(data, "0xef9955bc");
     }
 
     #[test]
