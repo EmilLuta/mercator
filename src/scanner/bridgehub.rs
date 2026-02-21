@@ -82,9 +82,9 @@ fn decode_address_word(data: &str) -> Result<String, BridgehubError> {
 }
 
 fn decode_hex_data(value: &str) -> Result<Vec<u8>, BridgehubError> {
-    let stripped = value.strip_prefix("0x").ok_or_else(|| {
-        BridgehubError::Decode("eth_call result was not 0x-prefixed".to_string())
-    })?;
+    let stripped = value
+        .strip_prefix("0x")
+        .ok_or_else(|| BridgehubError::Decode("eth_call result was not 0x-prefixed".to_string()))?;
 
     hex::decode(stripped).map_err(|err| BridgehubError::Decode(err.to_string()))
 }
@@ -106,7 +106,8 @@ fn read_usize_word(bytes: &[u8], offset: usize) -> Result<usize, BridgehubError>
     let mut low = [0u8; 8];
     low.copy_from_slice(&word[24..32]);
     let value_u64 = u64::from_be_bytes(low);
-    usize::try_from(value_u64).map_err(|_| BridgehubError::Decode("usize conversion failed".to_string()))
+    usize::try_from(value_u64)
+        .map_err(|_| BridgehubError::Decode("usize conversion failed".to_string()))
 }
 
 fn read_u64_word(word: &[u8]) -> Result<u64, BridgehubError> {
@@ -151,8 +152,7 @@ mod tests {
 
     #[test]
     fn decodes_address_word() {
-        let data =
-            "0x000000000000000000000000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let data = "0x000000000000000000000000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         let address = decode_address_word(data).expect("decode should succeed");
         assert_eq!(address, "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
     }

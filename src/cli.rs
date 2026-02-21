@@ -77,10 +77,7 @@ mod tests {
 
         let Command::Scan(args) = cli.command;
         assert_eq!(args.rpc_url, "https://example.com/");
-        assert_eq!(
-            args.bridgehub,
-            "0x0000000000000000000000000000000000000001"
-        );
+        assert_eq!(args.bridgehub, "0x0000000000000000000000000000000000000001");
         assert_eq!(args.timeout_secs, 15);
         assert!(!args.verbose);
     }

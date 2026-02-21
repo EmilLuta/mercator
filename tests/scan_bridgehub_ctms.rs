@@ -5,16 +5,9 @@ use mercator::{
     scanner::scan_bridgehub_ctms,
 };
 
+#[derive(Default)]
 struct ScriptedRpc {
     responses: HashMap<String, Result<String, RpcError>>,
-}
-
-impl Default for ScriptedRpc {
-    fn default() -> Self {
-        Self {
-            responses: HashMap::new(),
-        }
-    }
 }
 
 impl ScriptedRpc {
@@ -42,12 +35,13 @@ fn scan_bridgehub_ctms_with_scripted_rpc() {
     let rpc = ScriptedRpc::default()
         .with_response(
             chain_ids_data,
-            Ok("0x0000000000000000000000000000000000000000000000000000000000000020\
+            Ok(
+                "0x0000000000000000000000000000000000000000000000000000000000000020\
                 0000000000000000000000000000000000000000000000000000000000000003\
                 0000000000000000000000000000000000000000000000000000000000000144\
                 0000000000000000000000000000000000000000000000000000000000000145\
                 0000000000000000000000000000000000000000000000000000000000000146"
-                .replace(' ', ""),
+                    .replace(' ', ""),
             ),
         )
         .with_response(
@@ -69,6 +63,12 @@ fn scan_bridgehub_ctms_with_scripted_rpc() {
     assert_eq!(snapshot.chain_ctms.len(), 3);
     assert_eq!(snapshot.ctms.len(), 2);
     assert!(snapshot.warnings.is_empty());
-    assert_eq!(snapshot.ctms[0], "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-    assert_eq!(snapshot.ctms[1], "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+    assert_eq!(
+        snapshot.ctms[0],
+        "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    );
+    assert_eq!(
+        snapshot.ctms[1],
+        "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    );
 }

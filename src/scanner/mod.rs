@@ -13,7 +13,10 @@ pub enum ScanError {
     Bridgehub(#[from] bridgehub::BridgehubError),
 }
 
-pub fn scan_bridgehub_ctms(client: &dyn RpcClient, bridgehub: &str) -> Result<ScanSnapshot, ScanError> {
+pub fn scan_bridgehub_ctms(
+    client: &dyn RpcClient,
+    bridgehub: &str,
+) -> Result<ScanSnapshot, ScanError> {
     let chain_ids = bridgehub::get_all_zk_chain_chain_ids(client, bridgehub)?;
     let mut chain_ctms = Vec::with_capacity(chain_ids.len());
     let mut warnings = Vec::new();
@@ -32,7 +35,9 @@ pub fn scan_bridgehub_ctms(client: &dyn RpcClient, bridgehub: &str) -> Result<Sc
                     });
                 }
             }
-            Err(err) => warnings.push(format!("failed to resolve chainTypeManager for chain {chain_id}: {err}")),
+            Err(err) => warnings.push(format!(
+                "failed to resolve chainTypeManager for chain {chain_id}: {err}"
+            )),
         }
     }
 
@@ -58,6 +63,7 @@ mod tests {
 
     use super::*;
 
+    #[derive(Default)]
     struct MockRpcClient {
         responses: HashMap<String, Result<String, RpcError>>,
     }
@@ -66,14 +72,6 @@ mod tests {
         fn with_response(mut self, data: &str, response: Result<String, RpcError>) -> Self {
             self.responses.insert(data.to_string(), response);
             self
-        }
-    }
-
-    impl Default for MockRpcClient {
-        fn default() -> Self {
-            Self {
-                responses: HashMap::new(),
-            }
         }
     }
 
@@ -107,11 +105,8 @@ mod tests {
                 Ok("0x000000000000000000000000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string()),
             );
 
-        let snapshot = scan_bridgehub_ctms(
-            &mock,
-            "0x0000000000000000000000000000000000000001",
-        )
-        .expect("scan should succeed");
+        let snapshot = scan_bridgehub_ctms(&mock, "0x0000000000000000000000000000000000000001")
+            .expect("scan should succeed");
 
         assert_eq!(snapshot.chain_ids, vec![324, 325]);
         assert_eq!(snapshot.chain_ctms.len(), 2);

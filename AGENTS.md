@@ -27,6 +27,22 @@ Primary user workflow:
 - Keep extraction logic separate from output rendering.
 - Record provenance for resolved fields when possible (`contract + function`).
 
+## CI Pass Gate (Mandatory Before Commit)
+
+Run these from repository root, in this exact order:
+
+1. `cargo fmt --all -- --check`
+2. `cargo clippy --all-targets --all-features -- -D warnings`
+3. `cargo test --all-targets --all-features`
+
+Rules:
+
+- Do not commit if any command fails.
+- Fix root causes instead of weakening checks.
+- Keep local checks aligned with `.github/workflows/ci.yml`.
+- If `.github/workflows/ci.yml` changes, update this CI Pass Gate section in the same PR.
+- When CI fails, reproduce locally with the exact failing command before editing unrelated code.
+
 ## Incremental Delivery Plan
 
 ### Slice 0: CLI foundation reset
@@ -127,4 +143,3 @@ Implement Slice 0 and Slice 1 only:
 2. Add scanner skeleton and CTM extractor interface.
 3. Implement first Bridgehub -> CTM resolution path.
 4. Add tests before moving to chains/verifiers/roles.
-
