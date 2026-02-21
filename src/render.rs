@@ -1,9 +1,15 @@
 use crate::model::ScanSnapshot;
+use std::collections::BTreeMap;
 
 pub fn render_snapshot(snapshot: &ScanSnapshot, verbose: bool) -> String {
+    let mut ctm_chain_counts = BTreeMap::new();
+    for entry in &snapshot.chain_ctms {
+        let count = ctm_chain_counts.entry(entry.ctm.as_str()).or_insert(0usize);
+        *count += 1;
+    }
+
     let mut lines = vec![
         format!("Bridgehub: {}", snapshot.bridgehub),
-        format!("Chains discovered: {}", snapshot.chain_ids.len()),
         format!("CTMs discovered: {}", snapshot.ctms.len()),
         String::new(),
         "CTMs".to_string(),
@@ -13,17 +19,8 @@ pub fn render_snapshot(snapshot: &ScanSnapshot, verbose: bool) -> String {
         lines.push("  - none resolved".to_string());
     } else {
         for ctm in &snapshot.ctms {
-            lines.push(format!("  - {ctm}"));
-        }
-    }
-
-    lines.push(String::new());
-    lines.push("Chain -> CTM".to_string());
-    if snapshot.chain_ctms.is_empty() {
-        lines.push("  - no chain mappings resolved".to_string());
-    } else {
-        for entry in &snapshot.chain_ctms {
-            lines.push(format!("  - {} -> {}", entry.chain_id, entry.ctm));
+            let chain_count = ctm_chain_counts.get(ctm.as_str()).copied().unwrap_or(0);
+            lines.push(format!("  - {ctm} ({chain_count} chains)"));
         }
     }
 
@@ -62,6 +59,7 @@ mod tests {
 
         let output = render_snapshot(&snapshot, false);
         assert!(output.contains("CTMs discovered: 1"));
-        assert!(output.contains("324 -> 0x0000000000000000000000000000000000000002"));
+        assert!(output.contains("0x0000000000000000000000000000000000000002 (1 chains)"));
+        assert!(!output.contains("Chain -> CTM"));
     }
 }

@@ -14,9 +14,8 @@ cargo run -- scan \
 
 ## Current output
 
-- Chains discovered from `getAllZKChainChainIDs()`
 - CTM addresses resolved via `chainTypeManager(chainId)`
-- Deduplicated CTM summary plus chain -> CTM mapping
+- Deduplicated CTM summary with per-CTM chain counts
 
 ## Next slices
 
