@@ -15,6 +15,7 @@ cargo run -- scan \
 ## Current output
 
 - CTM addresses resolved via `chainTypeManager(chainId)`
+- CTM protocol versions from `protocolVersion()`
 - Deduplicated CTM summary with per-CTM chain counts
 
 ## Next slices

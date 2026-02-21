@@ -31,6 +31,7 @@ impl RpcClient for ScriptedRpc {
 fn scan_bridgehub_ctms_with_scripted_rpc() {
     let bridgehub = "0x1111111111111111111111111111111111111111";
     let chain_ids_data = "0x68b8d331";
+    let protocol_version_data = "0x2ae9c600";
 
     let rpc = ScriptedRpc::default()
         .with_response(
@@ -55,6 +56,10 @@ fn scan_bridgehub_ctms_with_scripted_rpc() {
         .with_response(
             "0x9d5bd3da0000000000000000000000000000000000000000000000000000000000000146",
             Ok("0x000000000000000000000000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string()),
+        )
+        .with_response(
+            protocol_version_data,
+            Ok("0x000000000000000000000000000000000000000000000000000000000000002a".to_string()),
         );
 
     let snapshot = scan_bridgehub_ctms(&rpc, bridgehub).expect("scan should succeed");
@@ -64,11 +69,13 @@ fn scan_bridgehub_ctms_with_scripted_rpc() {
     assert_eq!(snapshot.ctms.len(), 2);
     assert!(snapshot.warnings.is_empty());
     assert_eq!(
-        snapshot.ctms[0],
+        snapshot.ctms[0].address,
         "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     );
+    assert_eq!(snapshot.ctms[0].protocol_version.as_deref(), Some("0.0.42"));
     assert_eq!(
-        snapshot.ctms[1],
+        snapshot.ctms[1].address,
         "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     );
+    assert_eq!(snapshot.ctms[1].protocol_version.as_deref(), Some("0.0.42"));
 }

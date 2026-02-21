@@ -19,8 +19,15 @@ pub fn render_snapshot(snapshot: &ScanSnapshot, verbose: bool) -> String {
         lines.push("  - none resolved".to_string());
     } else {
         for ctm in &snapshot.ctms {
-            let chain_count = ctm_chain_counts.get(ctm.as_str()).copied().unwrap_or(0);
-            lines.push(format!("  - {ctm} ({chain_count} chains)"));
+            let chain_count = ctm_chain_counts
+                .get(ctm.address.as_str())
+                .copied()
+                .unwrap_or(0);
+            let protocol_version = ctm.protocol_version.as_deref().unwrap_or("unknown");
+            lines.push(format!(
+                "  - {} (protocol version: {protocol_version}, {chain_count} chains)",
+                ctm.address
+            ));
         }
     }
 
@@ -42,7 +49,7 @@ pub fn render_snapshot(snapshot: &ScanSnapshot, verbose: bool) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{ChainCtm, ScanSnapshot};
+    use crate::model::{ChainCtm, CtmSummary, ScanSnapshot};
 
     #[test]
     fn renders_basic_snapshot() {
@@ -53,13 +60,18 @@ mod tests {
                 chain_id: 324,
                 ctm: "0x0000000000000000000000000000000000000002".to_string(),
             }],
-            ctms: vec!["0x0000000000000000000000000000000000000002".to_string()],
+            ctms: vec![CtmSummary {
+                address: "0x0000000000000000000000000000000000000002".to_string(),
+                protocol_version: Some("17".to_string()),
+            }],
             warnings: vec![],
         };
 
         let output = render_snapshot(&snapshot, false);
         assert!(output.contains("CTMs discovered: 1"));
-        assert!(output.contains("0x0000000000000000000000000000000000000002 (1 chains)"));
+        assert!(output.contains(
+            "0x0000000000000000000000000000000000000002 (protocol version: 17, 1 chains)"
+        ));
         assert!(!output.contains("Chain -> CTM"));
     }
 }

@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use thiserror::Error;
 
-use crate::model::{ChainCtm, ScanSnapshot};
+use crate::model::{ChainCtm, CtmSummary, ScanSnapshot};
 use crate::rpc::RpcClient;
 
 pub mod bridgehub;
@@ -46,11 +46,28 @@ pub fn scan_bridgehub_ctms(
         deduped.insert(mapping.ctm.clone());
     }
 
+    let mut ctms = Vec::with_capacity(deduped.len());
+    for ctm in deduped {
+        let protocol_version = match bridgehub::get_ctm_protocol_semver(client, &ctm) {
+            Ok(version) => Some(version),
+            Err(err) => {
+                warnings.push(format!(
+                    "failed to resolve protocol semver for ctm {ctm}: {err}"
+                ));
+                None
+            }
+        };
+        ctms.push(CtmSummary {
+            address: ctm,
+            protocol_version,
+        });
+    }
+
     Ok(ScanSnapshot {
         bridgehub: bridgehub.to_string(),
         chain_ids,
         chain_ctms,
-        ctms: deduped.into_iter().collect(),
+        ctms,
         warnings,
     })
 }
@@ -90,6 +107,7 @@ mod tests {
         let chain_ids_data = bridgehub::encode_get_all_zk_chain_chain_ids_calldata();
         let chain_324_data = bridgehub::encode_chain_type_manager_calldata(324);
         let chain_325_data = bridgehub::encode_chain_type_manager_calldata(325);
+        let protocol_version_data = bridgehub::encode_protocol_version_calldata();
 
         let mock = MockRpcClient::default()
             .with_response(
@@ -103,6 +121,10 @@ mod tests {
             .with_response(
                 &chain_325_data,
                 Ok("0x000000000000000000000000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string()),
+            )
+            .with_response(
+                &protocol_version_data,
+                Ok("0x0000000000000000000000000000000000000000000000000000000000000007".to_string()),
             );
 
         let snapshot = scan_bridgehub_ctms(&mock, "0x0000000000000000000000000000000000000001")
@@ -112,8 +134,9 @@ mod tests {
         assert_eq!(snapshot.chain_ctms.len(), 2);
         assert_eq!(snapshot.ctms.len(), 1);
         assert_eq!(
-            snapshot.ctms[0],
+            snapshot.ctms[0].address,
             "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         );
+        assert_eq!(snapshot.ctms[0].protocol_version, Some("0.0.7".to_string()));
     }
 }

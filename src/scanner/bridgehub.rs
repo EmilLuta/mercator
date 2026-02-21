@@ -7,6 +7,8 @@ use crate::rpc::{RpcClient, RpcError};
 sol! {
     function getAllZKChainChainIDs() external view returns (uint256[] chainIds);
     function chainTypeManager(uint256 chainId) external view returns (address ctm);
+    function protocolVersion() external view returns (uint256 version);
+    function getSemverProtocolVersion() external view returns (uint32 major, uint32 minor, uint32 patch);
 }
 
 #[derive(Debug, Error)]
@@ -46,6 +48,40 @@ pub fn get_chain_type_manager(
     Ok(format!("{decoded:#x}"))
 }
 
+pub fn get_ctm_protocol_semver(
+    client: &dyn RpcClient,
+    ctm: &str,
+) -> Result<String, BridgehubError> {
+    if let Ok((major, minor, patch)) = get_ctm_semver_components(client, ctm) {
+        return Ok(format!("{major}.{minor}.{patch}"));
+    }
+
+    let raw = get_ctm_protocol_version_raw(client, ctm)?;
+    let (major, minor, patch) = decode_packed_semver(raw)?;
+    Ok(format!("{major}.{minor}.{patch}"))
+}
+
+fn get_ctm_semver_components(
+    client: &dyn RpcClient,
+    ctm: &str,
+) -> Result<(u32, u32, u32), BridgehubError> {
+    let calldata = encode_get_semver_protocol_version_calldata();
+    let response = client.eth_call(ctm, &calldata)?;
+    let bytes = decode_hex_data(&response)?;
+    let decoded = getSemverProtocolVersionCall::abi_decode_returns(&bytes)
+        .map_err(|err| BridgehubError::Decode(err.to_string()))?;
+    Ok((decoded.major, decoded.minor, decoded.patch))
+}
+
+fn get_ctm_protocol_version_raw(client: &dyn RpcClient, ctm: &str) -> Result<U256, BridgehubError> {
+    let calldata = encode_protocol_version_calldata();
+    let response = client.eth_call(ctm, &calldata)?;
+    let bytes = decode_hex_data(&response)?;
+    let decoded = protocolVersionCall::abi_decode_returns(&bytes)
+        .map_err(|err| BridgehubError::Decode(err.to_string()))?;
+    Ok(decoded)
+}
+
 pub fn encode_get_all_zk_chain_chain_ids_calldata() -> String {
     format!(
         "0x{}",
@@ -61,6 +97,17 @@ pub fn encode_chain_type_manager_calldata(chain_id: u64) -> String {
     format!("0x{}", hex::encode(calldata))
 }
 
+pub fn encode_protocol_version_calldata() -> String {
+    format!("0x{}", hex::encode(protocolVersionCall {}.abi_encode()))
+}
+
+pub fn encode_get_semver_protocol_version_calldata() -> String {
+    format!(
+        "0x{}",
+        hex::encode(getSemverProtocolVersionCall {}.abi_encode())
+    )
+}
+
 fn decode_hex_data(value: &str) -> Result<Vec<u8>, BridgehubError> {
     let stripped = value
         .strip_prefix("0x")
@@ -72,6 +119,22 @@ fn decode_hex_data(value: &str) -> Result<Vec<u8>, BridgehubError> {
 fn u256_to_u64(value: U256) -> Result<u64, BridgehubError> {
     u64::try_from(value)
         .map_err(|_| BridgehubError::Decode("decoded chain id does not fit into u64".to_string()))
+}
+
+fn decode_packed_semver(value: U256) -> Result<(u32, u32, u32), BridgehubError> {
+    let mask = U256::from(u32::MAX as u64);
+    let major_u64 = ((value >> 64usize) & mask).to::<u64>();
+    let minor_u64 = ((value >> 32usize) & mask).to::<u64>();
+    let patch_u64 = (value & mask).to::<u64>();
+
+    let major = u32::try_from(major_u64)
+        .map_err(|_| BridgehubError::Decode("semver major does not fit into u32".to_string()))?;
+    let minor = u32::try_from(minor_u64)
+        .map_err(|_| BridgehubError::Decode("semver minor does not fit into u32".to_string()))?;
+    let patch = u32::try_from(patch_u64)
+        .map_err(|_| BridgehubError::Decode("semver patch does not fit into u32".to_string()))?;
+
+    Ok((major, minor, patch))
 }
 
 #[cfg(test)]
@@ -91,6 +154,18 @@ mod tests {
             data,
             "0x9d5bd3da0000000000000000000000000000000000000000000000000000000000000144"
         );
+    }
+
+    #[test]
+    fn encodes_protocol_version_calldata() {
+        let data = encode_protocol_version_calldata();
+        assert_eq!(data, "0x2ae9c600");
+    }
+
+    #[test]
+    fn encodes_get_semver_protocol_version_calldata() {
+        let data = encode_get_semver_protocol_version_calldata();
+        assert_eq!(data, "0xf5c1182c");
     }
 
     #[test]
@@ -121,5 +196,35 @@ mod tests {
             format!("{decoded:#x}"),
             "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         );
+    }
+
+    #[test]
+    fn decodes_protocol_version_return() {
+        let data = "0x000000000000000000000000000000000000000000000000000000000000000f";
+        let bytes = decode_hex_data(data).expect("hex decode should succeed");
+        let decoded =
+            protocolVersionCall::abi_decode_returns(&bytes).expect("abi decode should work");
+        assert_eq!(decoded.to_string(), "15");
+    }
+
+    #[test]
+    fn decodes_get_semver_protocol_version_return() {
+        let data = "0x\
+                    0000000000000000000000000000000000000000000000000000000000000001\
+                    000000000000000000000000000000000000000000000000000000000000001d\
+                    0000000000000000000000000000000000000000000000000000000000000004";
+        let bytes = decode_hex_data(data).expect("hex decode should succeed");
+        let decoded = getSemverProtocolVersionCall::abi_decode_returns(&bytes)
+            .expect("abi decode should work");
+        assert_eq!(decoded.major, 1);
+        assert_eq!(decoded.minor, 29);
+        assert_eq!(decoded.patch, 4);
+    }
+
+    #[test]
+    fn decodes_packed_semver_value() {
+        let packed = (U256::from(1u32) << 64) | (U256::from(29u32) << 32) | U256::from(4u32);
+        let decoded = decode_packed_semver(packed).expect("packed decode should succeed");
+        assert_eq!(decoded, (1, 29, 4));
     }
 }
