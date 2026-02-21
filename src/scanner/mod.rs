@@ -87,7 +87,7 @@ mod tests {
 
     #[test]
     fn scanner_collects_and_dedupes_ctms() {
-        let chain_ids_data = bridgehub::GET_ALL_ZK_CHAIN_CHAIN_IDS_SELECTOR.to_string();
+        let chain_ids_data = bridgehub::encode_get_all_zk_chain_chain_ids_calldata();
         let chain_324_data = bridgehub::encode_chain_type_manager_calldata(324);
         let chain_325_data = bridgehub::encode_chain_type_manager_calldata(325);
 

@@ -1,4 +1,7 @@
 use clap::{Args, Parser, Subcommand};
+use std::str::FromStr;
+
+use alloy_primitives::Address;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -35,15 +38,9 @@ pub struct ScanArgs {
 }
 
 pub fn parse_address(value: &str) -> Result<String, String> {
-    if value.len() != 42 || !value.starts_with("0x") {
-        return Err("address must be 0x-prefixed and 20 bytes long".to_string());
-    }
-
-    if !value[2..].chars().all(|c| c.is_ascii_hexdigit()) {
-        return Err("address must contain only hex characters".to_string());
-    }
-
-    Ok(value.to_ascii_lowercase())
+    let address = Address::from_str(value)
+        .map_err(|_| "address must be 0x-prefixed and 20 bytes long".to_string())?;
+    Ok(format!("{address:#x}"))
 }
 
 pub fn parse_rpc_url(value: &str) -> Result<String, String> {

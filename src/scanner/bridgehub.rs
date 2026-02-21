@@ -1,9 +1,13 @@
+use alloy_primitives::U256;
+use alloy_sol_types::{SolCall, sol};
 use thiserror::Error;
 
 use crate::rpc::{RpcClient, RpcError};
 
-pub const GET_ALL_ZK_CHAIN_CHAIN_IDS_SELECTOR: &str = "0x68b8d331";
-const CHAIN_TYPE_MANAGER_SELECTOR: &str = "0x9d5bd3da";
+sol! {
+    function getAllZKChainChainIDs() external view returns (uint256[] chainIds);
+    function chainTypeManager(uint256 chainId) external view returns (address ctm);
+}
 
 #[derive(Debug, Error)]
 pub enum BridgehubError {
@@ -17,8 +21,17 @@ pub fn get_all_zk_chain_chain_ids(
     client: &dyn RpcClient,
     bridgehub: &str,
 ) -> Result<Vec<u64>, BridgehubError> {
-    let response = client.eth_call(bridgehub, GET_ALL_ZK_CHAIN_CHAIN_IDS_SELECTOR)?;
-    decode_uint256_array(&response)
+    let calldata = encode_get_all_zk_chain_chain_ids_calldata();
+    let response = client.eth_call(bridgehub, &calldata)?;
+    let bytes = decode_hex_data(&response)?;
+    let decoded = getAllZKChainChainIDsCall::abi_decode_returns(&bytes, true)
+        .map_err(|err| BridgehubError::Decode(err.to_string()))?;
+
+    decoded
+        .chainIds
+        .into_iter()
+        .map(u256_to_u64)
+        .collect::<Result<Vec<_>, _>>()
 }
 
 pub fn get_chain_type_manager(
@@ -28,57 +41,25 @@ pub fn get_chain_type_manager(
 ) -> Result<String, BridgehubError> {
     let calldata = encode_chain_type_manager_calldata(chain_id);
     let response = client.eth_call(bridgehub, &calldata)?;
-    decode_address_word(&response)
+    let bytes = decode_hex_data(&response)?;
+    let decoded = chainTypeManagerCall::abi_decode_returns(&bytes, true)
+        .map_err(|err| BridgehubError::Decode(err.to_string()))?;
+    Ok(format!("{:#x}", decoded.ctm))
+}
+
+pub fn encode_get_all_zk_chain_chain_ids_calldata() -> String {
+    format!(
+        "0x{}",
+        hex::encode(getAllZKChainChainIDsCall {}.abi_encode())
+    )
 }
 
 pub fn encode_chain_type_manager_calldata(chain_id: u64) -> String {
-    format!("{CHAIN_TYPE_MANAGER_SELECTOR}{chain_id:064x}")
-}
-
-fn decode_uint256_array(data: &str) -> Result<Vec<u64>, BridgehubError> {
-    let bytes = decode_hex_data(data)?;
-
-    if bytes.len() < 64 {
-        return Err(BridgehubError::Decode(
-            "uint256[] response is too short".to_string(),
-        ));
+    let calldata = chainTypeManagerCall {
+        chainId: U256::from(chain_id),
     }
-
-    let offset = read_usize_word(&bytes, 0)?;
-    if offset + 32 > bytes.len() {
-        return Err(BridgehubError::Decode(
-            "array offset points outside response".to_string(),
-        ));
-    }
-
-    let len = read_usize_word(&bytes, offset)?;
-    let mut values = Vec::with_capacity(len);
-    let mut cursor = offset + 32;
-
-    for _ in 0..len {
-        if cursor + 32 > bytes.len() {
-            return Err(BridgehubError::Decode(
-                "array item points outside response".to_string(),
-            ));
-        }
-        values.push(read_u64_word(&bytes[cursor..cursor + 32])?);
-        cursor += 32;
-    }
-
-    Ok(values)
-}
-
-fn decode_address_word(data: &str) -> Result<String, BridgehubError> {
-    let bytes = decode_hex_data(data)?;
-    if bytes.len() != 32 {
-        return Err(BridgehubError::Decode(format!(
-            "address response must be 32 bytes, got {}",
-            bytes.len()
-        )));
-    }
-
-    let address = &bytes[12..32];
-    Ok(format!("0x{}", hex::encode(address)))
+    .abi_encode();
+    format!("0x{}", hex::encode(calldata))
 }
 
 fn decode_hex_data(value: &str) -> Result<Vec<u8>, BridgehubError> {
@@ -89,46 +70,20 @@ fn decode_hex_data(value: &str) -> Result<Vec<u8>, BridgehubError> {
     hex::decode(stripped).map_err(|err| BridgehubError::Decode(err.to_string()))
 }
 
-fn read_usize_word(bytes: &[u8], offset: usize) -> Result<usize, BridgehubError> {
-    if offset + 32 > bytes.len() {
-        return Err(BridgehubError::Decode(
-            "attempted to read outside response bounds".to_string(),
-        ));
-    }
-
-    let word = &bytes[offset..offset + 32];
-    if word[..24].iter().any(|byte| *byte != 0) {
-        return Err(BridgehubError::Decode(
-            "value does not fit into u64".to_string(),
-        ));
-    }
-
-    let mut low = [0u8; 8];
-    low.copy_from_slice(&word[24..32]);
-    let value_u64 = u64::from_be_bytes(low);
-    usize::try_from(value_u64)
-        .map_err(|_| BridgehubError::Decode("usize conversion failed".to_string()))
-}
-
-fn read_u64_word(word: &[u8]) -> Result<u64, BridgehubError> {
-    if word.len() != 32 {
-        return Err(BridgehubError::Decode("word must be 32 bytes".to_string()));
-    }
-
-    if word[..24].iter().any(|byte| *byte != 0) {
-        return Err(BridgehubError::Decode(
-            "value does not fit into u64".to_string(),
-        ));
-    }
-
-    let mut low = [0u8; 8];
-    low.copy_from_slice(&word[24..32]);
-    Ok(u64::from_be_bytes(low))
+fn u256_to_u64(value: U256) -> Result<u64, BridgehubError> {
+    u64::try_from(value)
+        .map_err(|_| BridgehubError::Decode("decoded chain id does not fit into u64".to_string()))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn encodes_get_all_chain_ids_calldata() {
+        let data = encode_get_all_zk_chain_chain_ids_calldata();
+        assert_eq!(data, "0x68b8d331");
+    }
 
     #[test]
     fn encodes_chain_type_manager_calldata() {
@@ -140,20 +95,33 @@ mod tests {
     }
 
     #[test]
-    fn decodes_uint256_array() {
+    fn decodes_get_all_chain_ids_return() {
         let data = "0x0000000000000000000000000000000000000000000000000000000000000020\
                     0000000000000000000000000000000000000000000000000000000000000003\
                     0000000000000000000000000000000000000000000000000000000000000001\
                     0000000000000000000000000000000000000000000000000000000000000144\
                     0000000000000000000000000000000000000000000000000000000000000145";
-        let values = decode_uint256_array(data).expect("decode should succeed");
+        let bytes = decode_hex_data(data).expect("hex decode should succeed");
+        let decoded = getAllZKChainChainIDsCall::abi_decode_returns(&bytes, true)
+            .expect("abi decode should succeed");
+        let values = decoded
+            .chainIds
+            .into_iter()
+            .map(u256_to_u64)
+            .collect::<Result<Vec<_>, _>>()
+            .expect("u64 conversion should succeed");
         assert_eq!(values, vec![1, 324, 325]);
     }
 
     #[test]
-    fn decodes_address_word() {
+    fn decodes_chain_type_manager_return() {
         let data = "0x000000000000000000000000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-        let address = decode_address_word(data).expect("decode should succeed");
-        assert_eq!(address, "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        let bytes = decode_hex_data(data).expect("hex decode should succeed");
+        let decoded =
+            chainTypeManagerCall::abi_decode_returns(&bytes, true).expect("abi decode should work");
+        assert_eq!(
+            format!("{:#x}", decoded.ctm),
+            "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        );
     }
 }
