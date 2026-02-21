@@ -28,7 +28,7 @@ cargo run -- inspect \
   - output: CTMs, per-CTM chain count, and attached chain IDs
 - `inspect` (chain mode)
   - input: `rpc_url`, `bridgehub`, `chain_id`
-  - output: deep per-chain details (diamond, validator timelock, protocol/admin/admin-owner, warnings)
+  - output: deep per-chain details (diamond proxy, validator timelock + owner, chain admin ownable + owner, warnings)
 
 ## Current extraction coverage
 
@@ -36,6 +36,7 @@ cargo run -- inspect \
 - CTM protocol versions from `protocolVersion()`
 - Chain contract from `getZKChain(chainId)`
 - Per-chain validator timelock/admin/protocol from CTM (`validatorTimelockPostV29`/`validatorTimelock`, `getChainAdmin`, `getProtocolVersion`)
+- Validator timelock owner from timelock contract `owner()` when available
 - Admin owner from admin contract `owner()` when available
 
 ## Next slices

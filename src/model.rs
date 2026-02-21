@@ -15,6 +15,7 @@ pub struct ChainSummary {
     pub chain_id: u64,
     pub ctm: Option<String>,
     pub validator_timelock: Option<String>,
+    pub validator_timelock_owner: Option<String>,
     pub chain_contract: Option<String>,
     pub admin: Option<String>,
     pub admin_owner: Option<String>,

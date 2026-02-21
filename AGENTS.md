@@ -72,7 +72,7 @@ Goal: inspect one chain in detail from `bridgehub + chain_id`.
 
 Acceptance:
 
-- Resolves chain contract, validator timelock, admin/admin-owner, and protocol version where available.
+- Resolves chain contract, validator timelock/timelock-owner, admin/admin-owner, and protocol version where available.
 - Partial failures degrade to warnings with explicit failed call names.
 - Output is field-oriented and readable for single-chain triage.
 

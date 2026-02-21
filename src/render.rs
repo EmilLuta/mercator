@@ -15,9 +15,10 @@ pub fn render_topology(snapshot: &TopologySnapshot, verbose: bool) -> String {
     }
 
     let mut lines = vec![
-        format!("Bridgehub: {}", snapshot.bridgehub),
-        format!("Chains discovered: {}", snapshot.chain_ids.len()),
-        format!("CTMs discovered: {}", snapshot.ctms.len()),
+        "Summary".to_string(),
+        format!("  - BridgeHub: {}", snapshot.bridgehub),
+        format!("  - Chains discovered: {}", snapshot.chain_ids.len()),
+        format!("  - CTMs discovered: {}", snapshot.ctms.len()),
         String::new(),
         "CTMs".to_string(),
     ];
@@ -67,21 +68,26 @@ pub fn render_chain_inspection(inspection: &ChainInspection, verbose: bool) -> S
     let chain = &inspection.chain;
     let ctm = chain.ctm.as_deref().unwrap_or("unknown");
     let validator_timelock = chain.validator_timelock.as_deref().unwrap_or("unknown");
+    let validator_timelock_owner = chain
+        .validator_timelock_owner
+        .as_deref()
+        .unwrap_or("unknown");
     let diamond = chain.chain_contract.as_deref().unwrap_or("unknown");
     let admin = chain.admin.as_deref().unwrap_or("unknown");
     let admin_owner = chain.admin_owner.as_deref().unwrap_or("unknown");
     let protocol = chain.protocol_version.as_deref().unwrap_or("unknown");
 
     let mut lines = vec![
-        format!("Bridgehub: {}", inspection.bridgehub),
-        format!("Chain ID: {}", chain.chain_id),
-        String::new(),
         "Details".to_string(),
+        format!("  - BridgeHub: {}", inspection.bridgehub),
+        format!("  - Chain ID: {}", chain.chain_id),
         format!("  - CTM: {ctm}"),
-        format!("  - ValidatorTimelock: {validator_timelock}"),
-        format!("  - Diamond: {diamond}"),
+        format!("  - Validator Timelock Ownable: {validator_timelock}"),
+        format!("  - Validator Timelock Owner: {validator_timelock_owner}"),
+        format!("  - Chain Diamond Proxy: {diamond}"),
         format!("  - Protocol: {protocol}"),
-        format!("  - Admin: {admin} (owner: {admin_owner})"),
+        format!("  - Chain Admin Ownable: {admin}"),
+        format!("  - Chain Admin Owner: {admin_owner}"),
     ];
 
     if !inspection.warnings.is_empty() {
@@ -127,6 +133,8 @@ mod tests {
         };
 
         let output = render_topology(&snapshot, false);
+        assert!(output.contains("Summary"));
+        assert!(output.contains("BridgeHub: 0x0000000000000000000000000000000000000001"));
         assert!(output.contains("Chains discovered: 2"));
         assert!(output.contains("CTMs discovered: 1"));
         assert!(output.contains(
@@ -143,6 +151,9 @@ mod tests {
                 chain_id: 324,
                 ctm: Some("0x0000000000000000000000000000000000000002".to_string()),
                 validator_timelock: Some("0x0000000000000000000000000000000000000006".to_string()),
+                validator_timelock_owner: Some(
+                    "0x0000000000000000000000000000000000000008".to_string(),
+                ),
                 chain_contract: Some("0x0000000000000000000000000000000000000003".to_string()),
                 admin: Some("0x0000000000000000000000000000000000000004".to_string()),
                 admin_owner: Some("0x0000000000000000000000000000000000000007".to_string()),
@@ -152,12 +163,19 @@ mod tests {
         };
 
         let output = render_chain_inspection(&inspection, false);
-        assert!(output.contains("Chain ID: 324"));
         assert!(output.contains("Details"));
+        assert!(output.contains("  - BridgeHub: 0x0000000000000000000000000000000000000001"));
+        assert!(output.contains("  - Chain ID: 324"));
         assert!(output.contains("CTM: 0x0000000000000000000000000000000000000002"));
-        assert!(output.contains("ValidatorTimelock: 0x0000000000000000000000000000000000000006"));
-        assert!(output
-            .contains("Admin: 0x0000000000000000000000000000000000000004 (owner: 0x0000000000000000000000000000000000000007)"));
+        assert!(
+            output
+                .contains("Validator Timelock Ownable: 0x0000000000000000000000000000000000000006")
+        );
+        assert!(
+            output.contains("Validator Timelock Owner: 0x0000000000000000000000000000000000000008")
+        );
+        assert!(output.contains("Chain Admin Ownable: 0x0000000000000000000000000000000000000004"));
+        assert!(output.contains("Chain Admin Owner: 0x0000000000000000000000000000000000000007"));
         assert!(!output.contains("Verifier:"));
     }
 }

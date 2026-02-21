@@ -29,6 +29,7 @@ mercator inspect --rpc-url <RPC_URL> --bridgehub <BRIDGEHUB_ADDRESS> --chain-id 
 6. Stage-1 chain details (used by `inspect`):
    - chain diamond proxy: `getZKChain(chainId)`
    - chain validator timelock: `validatorTimelockPostV29()` with fallback to `validatorTimelock()` (via CTM)
+   - validator timelock owner: `owner()` on validator timelock contract (when implemented)
    - chain admin: `getChainAdmin(chainId)` (via CTM)
    - admin owner: `owner()` on admin contract (when implemented)
    - per-chain protocol version semver: `getProtocolVersion(chainId)` (via CTM)
@@ -46,6 +47,7 @@ mercator inspect --rpc-url <RPC_URL> --bridgehub <BRIDGEHUB_ADDRESS> --chain-id 
    - `chain_id`
    - `diamond` address
    - `validator_timelock` address
+   - `validator_timelock_owner` (when available)
    - `ctm` address
    - chain `protocol` semver
    - chain `admin`

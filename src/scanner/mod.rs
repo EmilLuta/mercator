@@ -120,6 +120,21 @@ pub fn inspect_bridgehub_chain(
         None => None,
     };
 
+    let validator_timelock_owner = match validator_timelock.as_deref() {
+        Some(validator_timelock) => match bridgehub::get_contract_owner(client, validator_timelock)
+        {
+            Ok(address) if !is_zero_address(&address) => Some(address),
+            Ok(_) => None,
+            Err(err) => {
+                warnings.push(format!(
+                    "failed to resolve owner() for validator timelock on chain {chain_id}: {err}"
+                ));
+                None
+            }
+        },
+        None => None,
+    };
+
     let admin = match ctm.as_deref() {
         Some(ctm) => match bridgehub::get_ctm_chain_admin(client, ctm, chain_id) {
             Ok(address) if !is_zero_address(&address) => Some(address),
@@ -167,6 +182,7 @@ pub fn inspect_bridgehub_chain(
             chain_id,
             ctm,
             validator_timelock,
+            validator_timelock_owner,
             chain_contract,
             admin,
             admin_owner,
@@ -254,8 +270,8 @@ mod tests {
         let chain_324_data = bridgehub::encode_chain_type_manager_calldata(324);
         let chain_324_zk_chain_data = bridgehub::encode_get_zk_chain_calldata(324);
         let validator_timelock_data = bridgehub::encode_validator_timelock_post_v29_calldata();
-        let chain_324_admin_data = bridgehub::encode_get_chain_admin_calldata(324);
         let owner_data = bridgehub::encode_owner_calldata();
+        let chain_324_admin_data = bridgehub::encode_get_chain_admin_calldata(324);
         let chain_324_protocol_data = bridgehub::encode_get_chain_protocol_version_calldata(324);
 
         let mock = MockRpcClient::default()
@@ -318,6 +334,10 @@ mod tests {
         assert_eq!(
             inspection.chain.validator_timelock.as_deref(),
             Some("0x7777777777777777777777777777777777777777")
+        );
+        assert_eq!(
+            inspection.chain.validator_timelock_owner.as_deref(),
+            Some("0x4444444444444444444444444444444444444444")
         );
         assert_eq!(
             inspection.chain.admin.as_deref(),
