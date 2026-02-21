@@ -24,11 +24,10 @@ pub fn get_all_zk_chain_chain_ids(
     let calldata = encode_get_all_zk_chain_chain_ids_calldata();
     let response = client.eth_call(bridgehub, &calldata)?;
     let bytes = decode_hex_data(&response)?;
-    let decoded = getAllZKChainChainIDsCall::abi_decode_returns(&bytes, true)
+    let decoded = getAllZKChainChainIDsCall::abi_decode_returns(&bytes)
         .map_err(|err| BridgehubError::Decode(err.to_string()))?;
 
     decoded
-        .chainIds
         .into_iter()
         .map(u256_to_u64)
         .collect::<Result<Vec<_>, _>>()
@@ -42,9 +41,9 @@ pub fn get_chain_type_manager(
     let calldata = encode_chain_type_manager_calldata(chain_id);
     let response = client.eth_call(bridgehub, &calldata)?;
     let bytes = decode_hex_data(&response)?;
-    let decoded = chainTypeManagerCall::abi_decode_returns(&bytes, true)
+    let decoded = chainTypeManagerCall::abi_decode_returns(&bytes)
         .map_err(|err| BridgehubError::Decode(err.to_string()))?;
-    Ok(format!("{:#x}", decoded.ctm))
+    Ok(format!("{decoded:#x}"))
 }
 
 pub fn encode_get_all_zk_chain_chain_ids_calldata() -> String {
@@ -102,10 +101,9 @@ mod tests {
                     0000000000000000000000000000000000000000000000000000000000000144\
                     0000000000000000000000000000000000000000000000000000000000000145";
         let bytes = decode_hex_data(data).expect("hex decode should succeed");
-        let decoded = getAllZKChainChainIDsCall::abi_decode_returns(&bytes, true)
+        let decoded = getAllZKChainChainIDsCall::abi_decode_returns(&bytes)
             .expect("abi decode should succeed");
         let values = decoded
-            .chainIds
             .into_iter()
             .map(u256_to_u64)
             .collect::<Result<Vec<_>, _>>()
@@ -118,9 +116,9 @@ mod tests {
         let data = "0x000000000000000000000000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         let bytes = decode_hex_data(data).expect("hex decode should succeed");
         let decoded =
-            chainTypeManagerCall::abi_decode_returns(&bytes, true).expect("abi decode should work");
+            chainTypeManagerCall::abi_decode_returns(&bytes).expect("abi decode should work");
         assert_eq!(
-            format!("{:#x}", decoded.ctm),
+            format!("{decoded:#x}"),
             "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         );
     }

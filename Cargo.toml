@@ -15,13 +15,14 @@ name = "mercator"
 path = "src/main.rs"
 
 [dependencies]
-alloy-primitives = "0.8"
-alloy-sol-types = "0.8"
+alloy-primitives = "1.4"
+alloy-provider = { version = "1.6", default-features = false, features = ["reqwest", "reqwest-rustls-tls"] }
+alloy-rpc-types-eth = { version = "1.6", default-features = false }
+alloy-sol-types = "1.4"
 clap = { version = "4.5", features = ["derive", "env"] }
 hex = "0.4"
-reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 thiserror = "2.0"
+tokio = { version = "1.44", features = ["rt", "rt-multi-thread"] }
 
 [dev-dependencies]
