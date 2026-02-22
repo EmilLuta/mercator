@@ -1,51 +1,57 @@
 # Mercator Handoff: Forward Plan
 
-Last updated: 2026-02-21
+Last updated: 2026-02-22
 
 ## Goal
 
-Adopt a two-command operator workflow:
-- `scan` for Bridgehub topology discovery
-- `inspect` for deep single-chain analysis
+Harden `inspect` role/ownership accuracy while preserving operator-friendly output.
 
-## Plan (Next Slices)
+## Priority Plan (Next Slices)
 
-1. Split command paths and output responsibilities.
-   - `scan`: CTMs + chain IDs only
-   - `inspect`: deep chain details
+1. Role provenance in model/output.
+   - Store source metadata for each resolved role-like field.
+   - Example: `admin_owner` from `admin.owner()`, `timelock_owner` from `timelock.owner()`.
 
-2. Add chain contract introspection around diamond.
-   - Identify whether diamond exposes direct timelock/admin getters.
-   - Add call-path fallback strategy with explicit warnings.
+2. Owner-resolution fallback strategy.
+   - Add controlled fallbacks when `owner()` is unavailable.
+   - Keep explicit warnings for each failed path.
 
-3. Add role/account clarity.
-   - Distinguish chain admin vs upgrade/admin roles (if different).
-   - Label role source method in model.
+3. Admin semantics clarification.
+   - Distinguish `chain admin ownable` contract vs true controlling account.
+   - Document ambiguity when admin itself is a contract/proxy/multisig.
 
-4. Improve output ergonomics for large chain sets.
-   - Keep `scan` concise by default.
-   - Keep `inspect` detailed and field-oriented.
+4. Test matrix expansion.
+   - Mixed-success integration cases:
+     - admin resolves, owner fails
+     - timelock resolves, owner fails
+     - both resolve to different owners
+   - Verify warnings and `unknown` behavior are deterministic.
 
-5. Add stronger integration coverage.
-   - Expand scripted-RPC tests for chain detail paths.
-   - Include mixed-success scenarios (partial failures).
+5. UX polish.
+   - Keep `scan` concise.
+   - Keep `inspect` detail-first, warning-rich, and terminology-stable.
 
 ## Immediate Implementation Order
 
-1. Add `inspect` CLI command (`bridgehub + chain_id`).
-2. Refactor scanner into topology (`scan`) and deep chain (`inspect`) paths.
-3. Update renderers so `scan` and `inspect` have distinct output shapes.
-4. Add/adjust tests for parser, scanners, and rendering.
+1. Extend model with provenance/source metadata for:
+   - `validator_timelock`
+   - `validator_timelock_owner`
+   - `chain_admin_ownable`
+   - `chain_admin_owner`
+2. Add owner fallback probes with explicit ordering and warning context.
+3. Update renderer to optionally show provenance in `--verbose`.
+4. Add/adjust tests before adding new extracted fields.
+5. Run full CI gate sequence.
+
+## Definition Of Done (Next Slice)
+
+1. Owner fields include source provenance.
+2. Owner resolution is deterministic with explicit fallback/warning behavior.
+3. Integration tests cover mixed-success ownership scenarios.
+4. `cargo fmt --all -- --check`, `cargo clippy --all-targets --all-features -- -D warnings`, and `cargo test --all-targets --all-features` all pass.
 
 ## Non-Goals (For Now)
 
 1. Historical tracing/indexing.
-2. JSON-first output.
-3. Broad multi-protocol support beyond current Bridgehub/CTM workflow.
-
-## Definition Of Done For Next Slice
-
-1. `scan` returns CTM + chain topology only.
-2. `inspect` resolves deep chain fields with warning-based partial failures.
-3. CLI and renderer clearly separate the two workflows.
-4. `fmt`, `clippy -D warnings`, `test` all pass.
+2. JSON-first output as default.
+3. Multi-protocol support beyond current Bridgehub/CTM scope.

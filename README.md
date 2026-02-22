@@ -30,6 +30,19 @@ cargo run -- inspect \
   - input: `rpc_url`, `bridgehub`, `chain_id`
   - output: deep per-chain details (diamond proxy, validator timelock + owner, chain admin ownable + owner, warnings)
 
+## Operator Labels
+
+`inspect` renders fields with stable operator-facing labels:
+- `BridgeHub`
+- `Chain ID`
+- `CTM`
+- `Validator Timelock Ownable`
+- `Validator Timelock Owner`
+- `Chain Diamond Proxy`
+- `Protocol`
+- `Chain Admin Ownable`
+- `Chain Admin Owner`
+
 ## Current extraction coverage
 
 - CTM addresses resolved via `chainTypeManager(chainId)`

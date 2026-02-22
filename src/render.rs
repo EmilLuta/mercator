@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::model::{ChainInspection, TopologySnapshot};
 
-pub fn render_topology(snapshot: &TopologySnapshot, verbose: bool) -> String {
+pub fn render_topology(snapshot: &TopologySnapshot, _verbose: bool) -> String {
     let mut ctm_chain_ids: BTreeMap<&str, Vec<u64>> = BTreeMap::new();
     for entry in &snapshot.chain_ctms {
         ctm_chain_ids
@@ -49,18 +49,6 @@ pub fn render_topology(snapshot: &TopologySnapshot, verbose: bool) -> String {
         }
     }
 
-    if !snapshot.warnings.is_empty() {
-        lines.push(String::new());
-        lines.push("Warnings".to_string());
-        for warning in &snapshot.warnings {
-            lines.push(format!("  - {warning}"));
-        }
-    } else if verbose {
-        lines.push(String::new());
-        lines.push("Warnings".to_string());
-        lines.push("  - none".to_string());
-    }
-
     lines.join("\n")
 }
 
@@ -90,16 +78,35 @@ pub fn render_chain_inspection(inspection: &ChainInspection, verbose: bool) -> S
         format!("  - Chain Admin Owner: {admin_owner}"),
     ];
 
-    if !inspection.warnings.is_empty() {
+    if verbose {
+        let signing_set_mode = chain
+            .multisig_signing_set_mode
+            .as_deref()
+            .unwrap_or("unknown");
+        let signing_threshold = chain
+            .multisig_signing_threshold
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "unknown".to_string());
+
         lines.push(String::new());
-        lines.push("Warnings".to_string());
-        for warning in &inspection.warnings {
-            lines.push(format!("  - {warning}"));
+        lines.push("Multisig Committer".to_string());
+        lines.push(format!("  - Signing Set Mode: {signing_set_mode}"));
+        lines.push(format!("  - Signing Threshold: {signing_threshold}"));
+        match chain.multisig_validators.as_ref() {
+            Some(validators) => {
+                lines.push("  - Validators:".to_string());
+                if validators.is_empty() {
+                    lines.push("    - none".to_string());
+                } else {
+                    for validator in validators {
+                        lines.push(format!("    - {validator}"));
+                    }
+                }
+            }
+            None => {
+                lines.push("  - Validators: unknown".to_string());
+            }
         }
-    } else if verbose {
-        lines.push(String::new());
-        lines.push("Warnings".to_string());
-        lines.push("  - none".to_string());
     }
 
     lines.join("\n")
@@ -141,6 +148,7 @@ mod tests {
             "0x0000000000000000000000000000000000000002 (protocol version: 17, chain count: 2, chains: 324,325)"
         ));
         assert!(!output.contains("Details"));
+        assert!(!output.contains("Warnings"));
     }
 
     #[test]
@@ -158,6 +166,12 @@ mod tests {
                 admin: Some("0x0000000000000000000000000000000000000004".to_string()),
                 admin_owner: Some("0x0000000000000000000000000000000000000007".to_string()),
                 protocol_version: Some("17.0.0".to_string()),
+                multisig_signing_set_mode: Some("shared".to_string()),
+                multisig_signing_threshold: Some(3),
+                multisig_validators: Some(vec![
+                    "0x0000000000000000000000000000000000000011".to_string(),
+                    "0x0000000000000000000000000000000000000012".to_string(),
+                ]),
             },
             warnings: vec![],
         };
@@ -176,6 +190,42 @@ mod tests {
         );
         assert!(output.contains("Chain Admin Ownable: 0x0000000000000000000000000000000000000004"));
         assert!(output.contains("Chain Admin Owner: 0x0000000000000000000000000000000000000007"));
+        assert!(!output.contains("Multisig Committer"));
+        assert!(!output.contains("Warnings"));
         assert!(!output.contains("Verifier:"));
+    }
+
+    #[test]
+    fn renders_verbose_multisig_commit_details() {
+        let inspection = ChainInspection {
+            bridgehub: "0x0000000000000000000000000000000000000001".to_string(),
+            chain: ChainSummary {
+                chain_id: 324,
+                ctm: Some("0x0000000000000000000000000000000000000002".to_string()),
+                validator_timelock: Some("0x0000000000000000000000000000000000000006".to_string()),
+                validator_timelock_owner: Some(
+                    "0x0000000000000000000000000000000000000008".to_string(),
+                ),
+                chain_contract: Some("0x0000000000000000000000000000000000000003".to_string()),
+                admin: Some("0x0000000000000000000000000000000000000004".to_string()),
+                admin_owner: Some("0x0000000000000000000000000000000000000007".to_string()),
+                protocol_version: Some("17.0.0".to_string()),
+                multisig_signing_set_mode: Some("custom".to_string()),
+                multisig_signing_threshold: Some(2),
+                multisig_validators: Some(vec![
+                    "0x0000000000000000000000000000000000000011".to_string(),
+                    "0x0000000000000000000000000000000000000012".to_string(),
+                ]),
+            },
+            warnings: vec![],
+        };
+
+        let output = render_chain_inspection(&inspection, true);
+        assert!(output.contains("Multisig Committer"));
+        assert!(output.contains("Signing Set Mode: custom"));
+        assert!(output.contains("Signing Threshold: 2"));
+        assert!(output.contains("  - Validators:"));
+        assert!(output.contains("    - 0x0000000000000000000000000000000000000011"));
+        assert!(output.contains("    - 0x0000000000000000000000000000000000000012"));
     }
 }

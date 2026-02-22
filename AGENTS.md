@@ -130,9 +130,9 @@ Never assume function names without source confirmation when production behavior
 
 ## Immediate Next Task
 
-Implement Slice 0 and Slice 1:
+Current command split is implemented. Focus next on role provenance and fallback hardening:
 
-1. Introduce `inspect` command with `rpc_url`, `bridgehub`, and `chain_id`.
-2. Split scanner paths into topology (`scan`) and deep chain (`inspect`).
-3. Keep `scan` output focused on CTMs + chain IDs.
-4. Add tests before extending role provenance/fallback.
+1. Add source labels/provenance to role fields (`chain admin`, `timelock owner`, `admin owner`).
+2. Implement fallback owner resolution paths when `owner()` is missing or proxied.
+3. Expand mixed-success integration tests for owner-resolution failures.
+4. Keep `scan` concise and `inspect` detailed while preserving warning-rich partial results.

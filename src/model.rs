@@ -20,6 +20,9 @@ pub struct ChainSummary {
     pub admin: Option<String>,
     pub admin_owner: Option<String>,
     pub protocol_version: Option<String>,
+    pub multisig_signing_set_mode: Option<String>,
+    pub multisig_signing_threshold: Option<u64>,
+    pub multisig_validators: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

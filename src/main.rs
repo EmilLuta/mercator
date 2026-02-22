@@ -21,17 +21,29 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             let client = HttpRpcClient::new(args.common.rpc_url, args.common.timeout_secs)?;
             let snapshot = scan_bridgehub_topology(&client, &args.common.bridgehub)?;
             println!("{}", render_topology(&snapshot, args.common.verbose));
+            emit_warnings(&snapshot.warnings);
         }
         Command::Inspect(args) => {
             let client = HttpRpcClient::new(args.common.rpc_url, args.common.timeout_secs)?;
-            let inspection =
-                inspect_bridgehub_chain(&client, &args.common.bridgehub, args.chain_id)?;
+            let inspection = inspect_bridgehub_chain(
+                &client,
+                &args.common.bridgehub,
+                args.chain_id,
+                args.common.verbose,
+            )?;
             println!(
                 "{}",
                 render_chain_inspection(&inspection, args.common.verbose)
             );
+            emit_warnings(&inspection.warnings);
         }
     }
 
     Ok(())
+}
+
+fn emit_warnings(warnings: &[String]) {
+    for warning in warnings {
+        eprintln!("warning: {warning}");
+    }
 }

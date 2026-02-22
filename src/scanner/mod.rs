@@ -76,6 +76,7 @@ pub fn inspect_bridgehub_chain(
     client: &dyn RpcClient,
     bridgehub: &str,
     chain_id: u64,
+    verbose: bool,
 ) -> Result<ChainInspection, ScanError> {
     let mut warnings = Vec::new();
 
@@ -176,6 +177,18 @@ pub fn inspect_bridgehub_chain(
         None => None,
     };
 
+    let (multisig_signing_set_mode, multisig_signing_threshold, multisig_validators) = if verbose {
+        resolve_multisig_committer_details(
+            client,
+            chain_id,
+            chain_contract.as_deref(),
+            validator_timelock.as_deref(),
+            &mut warnings,
+        )
+    } else {
+        (None, None, None)
+    };
+
     Ok(ChainInspection {
         bridgehub: bridgehub.to_string(),
         chain: ChainSummary {
@@ -187,9 +200,104 @@ pub fn inspect_bridgehub_chain(
             admin,
             admin_owner,
             protocol_version,
+            multisig_signing_set_mode,
+            multisig_signing_threshold,
+            multisig_validators,
         },
         warnings,
     })
+}
+
+fn resolve_multisig_committer_details(
+    client: &dyn RpcClient,
+    chain_id: u64,
+    chain_contract: Option<&str>,
+    validator_timelock: Option<&str>,
+    warnings: &mut Vec<String>,
+) -> (Option<String>, Option<u64>, Option<Vec<String>>) {
+    let (Some(chain_contract), Some(validator_timelock)) = (chain_contract, validator_timelock)
+    else {
+        return (None, None, None);
+    };
+
+    let use_custom = match bridgehub::get_multisig_is_custom_signing_set_active(
+        client,
+        validator_timelock,
+        chain_contract,
+    ) {
+        Ok(use_custom) => use_custom,
+        Err(err) => {
+            warnings.push(format!(
+                "failed to resolve multisig configuration for chain {chain_id} from validator timelock {validator_timelock}: {err}"
+            ));
+            return (None, None, None);
+        }
+    };
+
+    let signing_threshold = match bridgehub::get_multisig_signing_threshold(
+        client,
+        validator_timelock,
+        chain_contract,
+    ) {
+        Ok(threshold) => Some(threshold),
+        Err(err) => {
+            warnings.push(format!(
+                "failed to resolve multisig threshold for chain {chain_id} from validator timelock {validator_timelock}: {err}"
+            ));
+            None
+        }
+    };
+
+    let validators = match bridgehub::get_multisig_validators_count(
+        client,
+        validator_timelock,
+        chain_contract,
+    ) {
+        Ok(count) => {
+            let mut validators = Vec::with_capacity(count as usize);
+            for index in 0..count {
+                match bridgehub::get_multisig_validator_member(
+                    client,
+                    validator_timelock,
+                    chain_contract,
+                    index,
+                ) {
+                    Ok(address) => validators.push(address),
+                    Err(err) => {
+                        warnings.push(format!(
+                            "failed to resolve validator index {index} for chain {chain_id} from validator timelock {validator_timelock}: {err}"
+                        ));
+                        return (
+                            Some(if use_custom {
+                                "custom".to_string()
+                            } else {
+                                "shared".to_string()
+                            }),
+                            signing_threshold,
+                            None,
+                        );
+                    }
+                }
+            }
+            Some(validators)
+        }
+        Err(err) => {
+            warnings.push(format!(
+                "failed to resolve multisig validators count for chain {chain_id} from validator timelock {validator_timelock}: {err}"
+            ));
+            None
+        }
+    };
+
+    (
+        Some(if use_custom {
+            "custom".to_string()
+        } else {
+            "shared".to_string()
+        }),
+        signing_threshold,
+        validators,
+    )
 }
 
 fn is_zero_address(address: &str) -> bool {
@@ -318,9 +426,13 @@ mod tests {
                 ),
             );
 
-        let inspection =
-            inspect_bridgehub_chain(&mock, "0x0000000000000000000000000000000000000001", 324)
-                .expect("inspect should succeed");
+        let inspection = inspect_bridgehub_chain(
+            &mock,
+            "0x0000000000000000000000000000000000000001",
+            324,
+            false,
+        )
+        .expect("inspect should succeed");
 
         assert_eq!(inspection.chain.chain_id, 324);
         assert_eq!(
@@ -348,6 +460,133 @@ mod tests {
             Some("0x4444444444444444444444444444444444444444")
         );
         assert_eq!(inspection.chain.protocol_version.as_deref(), Some("0.0.7"));
+        assert_eq!(inspection.chain.multisig_signing_set_mode, None);
+        assert_eq!(inspection.chain.multisig_signing_threshold, None);
+        assert_eq!(inspection.chain.multisig_validators, None);
+        assert!(inspection.warnings.is_empty());
+    }
+
+    #[test]
+    fn inspect_chain_verbose_resolves_multisig_commit_details() {
+        let chain_324_data = bridgehub::encode_chain_type_manager_calldata(324);
+        let chain_324_zk_chain_data = bridgehub::encode_get_zk_chain_calldata(324);
+        let validator_timelock_data = bridgehub::encode_validator_timelock_post_v29_calldata();
+        let owner_data = bridgehub::encode_owner_calldata();
+        let chain_324_admin_data = bridgehub::encode_get_chain_admin_calldata(324);
+        let chain_324_protocol_data = bridgehub::encode_get_chain_protocol_version_calldata(324);
+        let chain_contract = "0xcccccccccccccccccccccccccccccccccccccccc";
+        let custom_signing_set_data =
+            bridgehub::encode_is_custom_signing_set_active_calldata(chain_contract)
+                .expect("custom signing set calldata should encode");
+        let signing_threshold_data =
+            bridgehub::encode_get_signing_threshold_calldata(chain_contract)
+                .expect("signing threshold calldata should encode");
+        let validators_count_data = bridgehub::encode_get_validators_count_calldata(chain_contract)
+            .expect("validators count calldata should encode");
+        let validator_0_data = bridgehub::encode_get_validators_member_calldata(chain_contract, 0)
+            .expect("validator member calldata should encode");
+        let validator_1_data = bridgehub::encode_get_validators_member_calldata(chain_contract, 1)
+            .expect("validator member calldata should encode");
+
+        let mock = MockRpcClient::default()
+            .with_response(
+                &chain_324_data,
+                Ok(
+                    "0x000000000000000000000000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                        .to_string(),
+                ),
+            )
+            .with_response(
+                &chain_324_zk_chain_data,
+                Ok(
+                    "0x000000000000000000000000cccccccccccccccccccccccccccccccccccccccc"
+                        .to_string(),
+                ),
+            )
+            .with_response(
+                &validator_timelock_data,
+                Ok(
+                    "0x0000000000000000000000007777777777777777777777777777777777777777"
+                        .to_string(),
+                ),
+            )
+            .with_response(
+                &chain_324_admin_data,
+                Ok(
+                    "0x000000000000000000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+                        .to_string(),
+                ),
+            )
+            .with_response(
+                &owner_data,
+                Ok(
+                    "0x0000000000000000000000004444444444444444444444444444444444444444"
+                        .to_string(),
+                ),
+            )
+            .with_response(
+                &chain_324_protocol_data,
+                Ok(
+                    "0x0000000000000000000000000000000000000000000000000000000000000007"
+                        .to_string(),
+                ),
+            )
+            .with_response(
+                &custom_signing_set_data,
+                Ok(
+                    "0x0000000000000000000000000000000000000000000000000000000000000001"
+                        .to_string(),
+                ),
+            )
+            .with_response(
+                &signing_threshold_data,
+                Ok(
+                    "0x0000000000000000000000000000000000000000000000000000000000000002"
+                        .to_string(),
+                ),
+            )
+            .with_response(
+                &validators_count_data,
+                Ok(
+                    "0x0000000000000000000000000000000000000000000000000000000000000002"
+                        .to_string(),
+                ),
+            )
+            .with_response(
+                &validator_0_data,
+                Ok(
+                    "0x0000000000000000000000001111111111111111111111111111111111111111"
+                        .to_string(),
+                ),
+            )
+            .with_response(
+                &validator_1_data,
+                Ok(
+                    "0x0000000000000000000000002222222222222222222222222222222222222222"
+                        .to_string(),
+                ),
+            );
+
+        let inspection = inspect_bridgehub_chain(
+            &mock,
+            "0x0000000000000000000000000000000000000001",
+            324,
+            true,
+        )
+        .expect("inspect should succeed");
+
+        assert_eq!(
+            inspection.chain.multisig_signing_set_mode.as_deref(),
+            Some("custom")
+        );
+        assert_eq!(inspection.chain.multisig_signing_threshold, Some(2));
+        assert_eq!(
+            inspection.chain.multisig_validators,
+            Some(vec![
+                "0x1111111111111111111111111111111111111111".to_string(),
+                "0x2222222222222222222222222222222222222222".to_string(),
+            ])
+        );
         assert!(inspection.warnings.is_empty());
     }
 }

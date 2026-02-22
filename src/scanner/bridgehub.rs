@@ -1,4 +1,6 @@
-use alloy_primitives::U256;
+use std::str::FromStr;
+
+use alloy_primitives::{Address, U256};
 use alloy_sol_types::{SolCall, sol};
 use thiserror::Error;
 
@@ -9,6 +11,10 @@ sol! {
     function chainTypeManager(uint256 chainId) external view returns (address ctm);
     function getZKChain(uint256 chainId) external view returns (address chainContract);
     function owner() external view returns (address ownerAddress);
+    function isCustomSigningSetActive(address chainAddress) external view returns (bool);
+    function getSigningThreshold(address chainAddress) external view returns (uint64);
+    function getValidatorsCount(address chainAddress) external view returns (uint256);
+    function getValidatorsMember(address chainAddress, uint256 index) external view returns (address);
     function validatorTimelock() external view returns (address validatorTimelock);
     function validatorTimelockPostV29() external view returns (address validatorTimelockPostV29);
     function protocolVersion() external view returns (uint256 version);
@@ -115,6 +121,59 @@ pub fn get_contract_owner(
     Ok(format!("{decoded:#x}"))
 }
 
+pub fn get_multisig_is_custom_signing_set_active(
+    client: &dyn RpcClient,
+    multisig_committer: &str,
+    chain_contract: &str,
+) -> Result<bool, BridgehubError> {
+    let calldata = encode_is_custom_signing_set_active_calldata(chain_contract)?;
+    let response = client.eth_call(multisig_committer, &calldata)?;
+    let bytes = decode_hex_data(&response)?;
+    let decoded = isCustomSigningSetActiveCall::abi_decode_returns(&bytes)
+        .map_err(|err| BridgehubError::Decode(err.to_string()))?;
+    Ok(decoded)
+}
+
+pub fn get_multisig_signing_threshold(
+    client: &dyn RpcClient,
+    multisig_committer: &str,
+    chain_contract: &str,
+) -> Result<u64, BridgehubError> {
+    let calldata = encode_get_signing_threshold_calldata(chain_contract)?;
+    let response = client.eth_call(multisig_committer, &calldata)?;
+    let bytes = decode_hex_data(&response)?;
+    let decoded = getSigningThresholdCall::abi_decode_returns(&bytes)
+        .map_err(|err| BridgehubError::Decode(err.to_string()))?;
+    Ok(decoded)
+}
+
+pub fn get_multisig_validators_count(
+    client: &dyn RpcClient,
+    multisig_committer: &str,
+    chain_contract: &str,
+) -> Result<u64, BridgehubError> {
+    let calldata = encode_get_validators_count_calldata(chain_contract)?;
+    let response = client.eth_call(multisig_committer, &calldata)?;
+    let bytes = decode_hex_data(&response)?;
+    let decoded = getValidatorsCountCall::abi_decode_returns(&bytes)
+        .map_err(|err| BridgehubError::Decode(err.to_string()))?;
+    u256_to_u64(decoded)
+}
+
+pub fn get_multisig_validator_member(
+    client: &dyn RpcClient,
+    multisig_committer: &str,
+    chain_contract: &str,
+    index: u64,
+) -> Result<String, BridgehubError> {
+    let calldata = encode_get_validators_member_calldata(chain_contract, index)?;
+    let response = client.eth_call(multisig_committer, &calldata)?;
+    let bytes = decode_hex_data(&response)?;
+    let decoded = getValidatorsMemberCall::abi_decode_returns(&bytes)
+        .map_err(|err| BridgehubError::Decode(err.to_string()))?;
+    Ok(format!("{decoded:#x}"))
+}
+
 pub fn get_ctm_validator_timelock(
     client: &dyn RpcClient,
     ctm: &str,
@@ -213,6 +272,52 @@ pub fn encode_owner_calldata() -> String {
     format!("0x{}", hex::encode(ownerCall {}.abi_encode()))
 }
 
+pub fn encode_is_custom_signing_set_active_calldata(
+    chain_contract: &str,
+) -> Result<String, BridgehubError> {
+    let chain_address = parse_address(chain_contract)?;
+    let calldata = isCustomSigningSetActiveCall {
+        chainAddress: chain_address,
+    }
+    .abi_encode();
+    Ok(format!("0x{}", hex::encode(calldata)))
+}
+
+pub fn encode_get_signing_threshold_calldata(
+    chain_contract: &str,
+) -> Result<String, BridgehubError> {
+    let chain_address = parse_address(chain_contract)?;
+    let calldata = getSigningThresholdCall {
+        chainAddress: chain_address,
+    }
+    .abi_encode();
+    Ok(format!("0x{}", hex::encode(calldata)))
+}
+
+pub fn encode_get_validators_count_calldata(
+    chain_contract: &str,
+) -> Result<String, BridgehubError> {
+    let chain_address = parse_address(chain_contract)?;
+    let calldata = getValidatorsCountCall {
+        chainAddress: chain_address,
+    }
+    .abi_encode();
+    Ok(format!("0x{}", hex::encode(calldata)))
+}
+
+pub fn encode_get_validators_member_calldata(
+    chain_contract: &str,
+    index: u64,
+) -> Result<String, BridgehubError> {
+    let chain_address = parse_address(chain_contract)?;
+    let calldata = getValidatorsMemberCall {
+        chainAddress: chain_address,
+        index: U256::from(index),
+    }
+    .abi_encode();
+    Ok(format!("0x{}", hex::encode(calldata)))
+}
+
 pub fn encode_validator_timelock_calldata() -> String {
     format!("0x{}", hex::encode(validatorTimelockCall {}.abi_encode()))
 }
@@ -282,6 +387,10 @@ fn decode_packed_semver(value: U256) -> Result<(u32, u32, u32), BridgehubError> 
 
 fn is_zero_address(address: &str) -> bool {
     address == "0x0000000000000000000000000000000000000000"
+}
+
+fn parse_address(value: &str) -> Result<Address, BridgehubError> {
+    Address::from_str(value).map_err(|err| BridgehubError::Decode(err.to_string()))
 }
 
 #[cfg(test)]
